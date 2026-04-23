@@ -26,6 +26,37 @@ class Orders_model extends Crud_model {
         $this->db->query($sql);
     }
 
+    function update_user_email($order_id, $db_name){
+        // Get client_id
+        $orders_table = $this->db->prefixTable('orders');
+        $client_id = $this->db->query(
+            "SELECT client_id FROM $orders_table WHERE id = ?", 
+            [$order_id]
+        )->getRow()->client_id;
+
+        // Get email
+        $users_table = $this->db->prefixTable('users');
+        $email = $this->db->query(
+            "SELECT email FROM $users_table WHERE id = ?", 
+            [$client_id]
+        )->getRow()->email;
+
+        //  Connect to NEW database
+        $new_db = new \mysqli("localhost", "webhut96_deepak_community", '@#$Deepak25', $db_name);
+
+        if ($new_db->connect_error) {
+            die("Connection failed: " . $new_db->connect_error);
+        }
+
+        // Update email (only 1 record exists)
+        $stmt = $new_db->prepare("UPDATE engine4_users SET email = ? LIMIT 1");
+        $stmt->bind_param("s", $email);
+        $stmt->execute();
+
+        $stmt->close();
+        $new_db->close();
+    }
+
     //domain validation
     function is_domain_exists($domain)
     {

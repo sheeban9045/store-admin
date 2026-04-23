@@ -2,6 +2,7 @@
 //get the array of hidden menu
 $hidden_menu = explode(",", get_setting("hidden_client_menus"));
 $permissions = $login_user->permissions;
+$has_content = false;
 ?>
 
 <div id="keyboard-shortcut-modal-form" class="modal-body clearfix general-form white">
@@ -23,6 +24,7 @@ $permissions = $login_user->permissions;
                     </div>
                 </div>
             </div> 
+            <?php $has_content = true; ?>
         <?php } ?>
         <?php if ($login_user->user_type == "staff") { ?>
             <div class="form-group">
@@ -33,6 +35,7 @@ $permissions = $login_user->permissions;
                     </div>
                 </div>
             </div>
+            <?php $has_content = true; ?>
         <?php } ?>
         <?php if (get_setting("module_event") == "1" && (($login_user->user_type == "client" && !in_array("events", $hidden_menu)) || $login_user->user_type == "staff")) { ?>
             <div class="form-group">
@@ -43,6 +46,7 @@ $permissions = $login_user->permissions;
                     </div>
                 </div>
             </div>
+            <?php $has_content = true; ?>
         <?php } ?>
         <?php if (get_setting("module_note") == "1" && $login_user->user_type == "staff") { ?>
             <div class="form-group">
@@ -53,6 +57,7 @@ $permissions = $login_user->permissions;
                     </div>
                 </div>
             </div>
+            <?php $has_content = true; ?>
         <?php } ?>
         <?php if (get_setting("module_todo") == "1") { ?>
             <div class="form-group">
@@ -63,6 +68,7 @@ $permissions = $login_user->permissions;
                     </div>
                 </div>
             </div>
+            <?php $has_content = true; ?>
         <?php } ?>
         <?php if (get_setting("module_ticket") == "1" && ($login_user->is_admin || get_array_value($permissions, "ticket"))) { ?>
             <div class="form-group">
@@ -71,6 +77,15 @@ $permissions = $login_user->permissions;
                     <div class="col-md-2">
                         <span class="badge bg-white">s</span>
                     </div>
+                </div>
+            </div>
+            <?php $has_content = true; ?>
+        <?php } ?>
+
+        <?php if (!$has_content) { ?>
+            <div class="form-group text-center">
+                <div class="alert alert-info">
+                    No keyboard shortcuts available for your account.
                 </div>
             </div>
         <?php } ?>

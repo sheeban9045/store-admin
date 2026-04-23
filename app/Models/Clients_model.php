@@ -115,7 +115,11 @@ class Clients_model extends Crud_model {
                 owner_details.owner_name, owner_details.owner_avatar
         FROM $clients_table
         LEFT JOIN $users_table ON $users_table.client_id = $clients_table.id AND $users_table.deleted=0 AND $users_table.is_primary_contact=1 
-        LEFT JOIN (SELECT client_id, COUNT(id) AS total_projects FROM $projects_table WHERE deleted=0 GROUP BY client_id) AS project_table ON project_table.client_id= $clients_table.id
+        
+        -- LEFT JOIN (SELECT client_id, COUNT(id) AS total_projects FROM $projects_table WHERE deleted=0 GROUP BY client_id) AS project_table ON project_table.client_id= $clients_table.id
+        -- Add code for total projects
+        LEFT JOIN ( SELECT client_id, COUNT(id) AS total_projects FROM $orders_table WHERE deleted = 0 AND is_community_set = 1 AND is_domain_created = 1 GROUP BY client_id) AS project_table ON project_table.client_id = $clients_table.id
+        -- End code for total projects
         LEFT JOIN (SELECT client_id, SUM(payments_table.payment_received) as payment_received, $invoice_value_calculation_query as invoice_value FROM $invoices_table
                    LEFT JOIN (SELECT $taxes_table.* FROM $taxes_table) AS tax_table ON tax_table.id = $invoices_table.tax_id
                    LEFT JOIN (SELECT $taxes_table.* FROM $taxes_table) AS tax_table2 ON tax_table2.id = $invoices_table.tax_id2 

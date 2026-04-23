@@ -185,7 +185,8 @@ body {
 		      //  window.location.href = "http://<?php echo $domain; ?>.webhut.net";
 		      if(response.success){ 
 		        // window.location.href = "http://webhut.net/<?php echo $domain; ?>/login/community_success/1";
-            window.location.href = "http://<?php echo $domain; ?>/index.php/login/community_success/1/user_email/<?php echo $user_email?>/orderid/<?php echo $order_id ?>";
+            // window.location.href = "http://<?php echo $domain; ?>/login/community_success/1/user_email/<?php echo $user_email?>/orderid/<?php echo $order_id ?>";
+            window.location.href = "http://<?php echo $domain; ?>/login/community_success/1/user_email/<?php echo $user_email?>/orderid/<?php echo $order_id ?>/autologin/1";
 
 		      } else {
 		        alert("Some error occured while setup the community please try later!");

@@ -24,13 +24,16 @@
                 {name: "category_id", class: "w200", options: <?php echo $categories_dropdown; ?>}
             ],
             columns: [
-                {title: "<?php echo app_lang('title') ?> ", "class": "w20p"},
-                {title: "<?php echo app_lang('description') ?>"},
+                {title: "<?php echo app_lang('title') ?> ", "class": "w10p"},
+                {title: "<?php echo app_lang('description') ?>", "class": "w30p"},
                 {title: "<?php echo app_lang('category') ?>"},
                 {title: "<?php echo app_lang('payment_type') ?>"},
                 {title: "<?php echo app_lang('unit_type') ?>", "class": "w100"},
+                {title: "<?php echo app_lang('plan_type') ?>", "class": "w100"},
                 {title: "<?php echo app_lang('rate') ?>", "class": "text-right w100"},
-                {title: "<i data-feather='menu' class='icon-16'></i>", "class": "text-center option w100"}
+                {title: "<?php echo app_lang('order') ?>", "class": "text-center"},
+                {title: "<?php echo app_lang('installation_charges') ?>", "class": "text-center"},
+                {title: "<i data-feather='menu' class='icon-16'></i>", "class": "text-center option w15p"}
             ],
             printColumns: [0, 1, 2, 3],
             xlsColumns: [0, 1, 2, 3]

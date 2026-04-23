@@ -87,6 +87,17 @@
             </div>
             <div class="form-group">
                 <div class="row">
+                    <label for="payment_type" class=" col-md-3"><?php echo app_lang('plan_type'); ?></label>
+                    <div class=" col-md-9">
+                        <?php
+                        $type = array("onetime"=>"One Time","monthly" => "Monthly");
+                        echo form_dropdown("type", $type, isset($model_info->type) ? $model_info->type : "", "class='select2 validate-hidden' id='type' data-rule-required='true', data-msg-required='" . app_lang('field_required') . "'");
+                        ?>
+                    </div>
+                </div>
+            </div> 
+            <div class="form-group">
+                <div class="row">
                     <label for="item_rate" class=" col-md-3"><?php echo app_lang('rate'); ?></label>
                     <div class="col-md-9">
                         <?php
@@ -116,6 +127,62 @@
                     </div>
                 </div>
             <?php } ?>
+
+            <div class="form-group">
+                <div class="row">
+                    <label for="order" class=" col-md-3"><?php echo app_lang('order'); ?></label>
+                    <div class="col-md-9">
+                        <?php
+                        echo form_input(array(
+                            "id" => "order",
+                            "type" => "number",
+                            "name" => "order",
+                            "value" => isset($model_info->order) && $model_info->order ? $model_info->order : 0,
+                            "class" => "form-control",
+                            "placeholder" => app_lang('order'),
+                            "data-rule-required" => true,
+                            "data-msg-required" => app_lang("field_required"),
+                        ));
+                        ?>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="row">
+                    <label for="item_installation_charges" class=" col-md-3"><?php echo app_lang('installation_charges'); ?></label>
+                    <div class="col-md-9">
+                        <?php
+                        echo form_input(array(
+                            "id" => "item_installation_charges",
+                            "name" => "installation_charges",
+                            "value" => isset($model_info->installation_charges) ? $model_info->installation_charges : "",
+                            "class" => "form-control",
+                            "placeholder" => app_lang('installation_charges'),
+                            "data-rule-required" => true,
+                            "data-msg-required" => app_lang("field_required"),
+                        ));
+                        ?>
+                    </div>
+                </div>
+            </div>
+            <div class="form-group">
+                <div class="row">
+                    <label for="item_demo_url" class=" col-md-3"><?php echo app_lang('demo_url'); ?></label>
+                    <div class="col-md-9">
+                        <?php
+                        echo form_input(array(
+                            "id" => "item_demo_url",
+                            "name" => "demo_url",
+                            "value" => isset($model_info->demo_url) ? $model_info->demo_url : "",
+                            "class" => "form-control",
+                            "placeholder" => app_lang('demo_url'),
+                            "data-rule-required" => true,
+                            "data-msg-required" => app_lang("field_required"),
+                        ));
+                        ?>
+                    </div>
+                </div>
+            </div>
 
             <div class="form-group">
                 <div class="row">
