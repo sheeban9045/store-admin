@@ -1,0 +1,6 @@
+.env
+.env.*
+writable/
+public/stripe/
+system/
+app/ThirdParty/
