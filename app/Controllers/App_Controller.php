@@ -119,7 +119,8 @@ class App_Controller extends Controller {
             'Client_vacations_model',
             'Features_model',
             'Features_type_model',
-            'Services_model'
+            'Services_model',
+            'Webhut_plugins_model',
         );
     }
 

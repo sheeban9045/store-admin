@@ -2236,6 +2236,13 @@ $lang["domain"] = "Domain";
 $lang["limit"] = "Limit";
 
 $lang["community_design"] = "Community Design";
+$lang["add_plugin"] = "Add Plugin";
+$lang["edit_plugin"] = "Edit Plugin";
+$lang["code"] = "Code";
+$lang["discount_value"] = "Discount Value";
+$lang["zip_file"] = "Zip File";
+$lang["photos"] = "Photos";
+$lang["fixed"] = "Fixed";
 
 
 
