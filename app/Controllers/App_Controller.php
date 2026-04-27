@@ -11,16 +11,14 @@ use App\Libraries\Template;
 use App\Libraries\Google;
 use CodeIgniter\Controller;
 
-class App_Controller extends Controller
-{
+class App_Controller extends Controller {
 
     protected $template;
     public $session;
     public $form_validation;
     public $parser;
 
-    public function __construct()
-    {
+    public function __construct() {
         //main template to make frame of this app
         $this->template = new Template();
 
@@ -50,13 +48,11 @@ class App_Controller extends Controller
         $this->parser = \Config\Services::parser();
     }
 
-    public function initController(\CodeIgniter\HTTP\RequestInterface $request, \CodeIgniter\HTTP\ResponseInterface $response, \Psr\Log\LoggerInterface $logger)
-    {
+    public function initController(\CodeIgniter\HTTP\RequestInterface $request, \CodeIgniter\HTTP\ResponseInterface $response, \Psr\Log\LoggerInterface $logger) {
         parent::initController($request, $response, $logger); //don't edit this line
     }
 
-    private function get_models_array()
-    {
+    private function get_models_array() {
         return array(
             'Settings_model',
             'Users_model',
@@ -120,13 +116,16 @@ class App_Controller extends Controller
             'Proposal_items_model',
             'Checklist_template_model',
             'Checklist_groups_model',
-            'Client_vacations_model'
+            'Client_vacations_model',
+            'Features_model',
+            'Features_type_model',
+            'Services_model',
+            'Webhut_plugins_model',
         );
     }
 
     //validate submitted data
-    protected function validate_submitted_data($fields = array(), $return_errors = false)
-    {
+    protected function validate_submitted_data($fields = array(), $return_errors = false) {
         $final_fields = array();
 
         foreach ($fields as $field => $validate) {
@@ -172,8 +171,7 @@ class App_Controller extends Controller
      * @param string $serialized_file_data 
      * @return download files
      */
-    protected function download_app_files($directory_path, $serialized_file_data)
-    {
+    protected function download_app_files($directory_path, $serialized_file_data) {
         $file_exists = false;
         if ($serialized_file_data) {
             require_once(APPPATH . "ThirdParty/nelexa-php-zip/vendor/autoload.php");
@@ -231,4 +229,5 @@ class App_Controller extends Controller
             die(app_lang("no_such_file_or_directory_found"));
         }
     }
+
 }

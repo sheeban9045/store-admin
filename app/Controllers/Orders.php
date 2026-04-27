@@ -1,31 +1,27 @@
 <?php
 
 namespace App\Controllers;
-// require('/var/www/html/stripe/init.php');
-require ROOTPATH . 'public/stripe/init.php';
+require('/var/www/html/stripe/init.php');
 
-class Orders extends Security_Controller
-{
+class Orders extends Security_Controller {
 
-    function __construct()
-    {
+    function __construct() {
         parent::__construct();
         $this->init_permission_checker("order");
         $myView = 0;
     }
 
-    function index()
-    {
+    function index() {
 
         $this->check_access_to_store();
 
         $view_data["custom_field_headers"] = $this->Custom_fields_model->get_custom_field_headers_for_table("orders", $this->login_user->is_admin, $this->login_user->user_type);
-
+        
         $view_data["custom_field_filters"] = $this->Custom_fields_model->get_custom_field_filters("orders", $this->login_user->is_admin, $this->login_user->user_type);
 
         if ($this->login_user->user_type === "staff") {
             $view_data['order_statuses'] = $this->Order_status_model->get_details()->getResult();
-            //$view_data['orders'] = $this->list_data();
+             //$view_data['orders'] = $this->list_data();
             return $this->template->rander("orders/index", $view_data);
         } else {
             //client view
@@ -36,8 +32,7 @@ class Orders extends Security_Controller
         }
     }
 
-    function process_order()
-    {
+    function process_order() {
         $this->check_access_to_store();
         $view_data = get_order_making_data();
         $view_data["cart_items_count"] = count($this->Order_items_model->get_all_where(array("created_by" => $this->login_user->id, "order_id" => 0, "deleted" => 0))->getResult());
@@ -55,8 +50,7 @@ class Orders extends Security_Controller
         return $this->template->rander("orders/process_order", $view_data);
     }
 
-    function item_list_data_of_login_user()
-    {
+    function item_list_data_of_login_user() {
         $this->check_access_to_store();
         $options = array("created_by" => $this->login_user->id, "processing" => true);
         $list_data = $this->Order_items_model->get_details($options)->getResult();
@@ -70,8 +64,7 @@ class Orders extends Security_Controller
 
     /* prepare a row of order item list table */
 
-    private function _make_item_row($data)
-    {
+    private function _make_item_row($data) {
         $item = "<div class='item-row strong mb5' data-id='$data->id'><div class='float-start move-icon'><i data-feather='menu' class='icon-16'></i></div> $data->title</div>";
         if ($data->description) {
             $item .= "<span>" . nl2br($data->description) . "</span>";
@@ -82,19 +75,18 @@ class Orders extends Security_Controller
         return array(
             $data->sort,
             $item,
-            to_decimal_format($data->quantity) . $type,
+           to_decimal_format($data->quantity) . $type,
             // $limit . " " ."months",
             to_currency($data->rate),
             to_currency($data->total),
-            // modal_anchor(get_uri("orders/item_modal_form"), "<i data-feather='edit' class='icon-16'></i>", array("class" => "edit", "title" => app_lang('edit_item'), "data-post-id" => $data->id, "data-post-order_id" => $data->order_id)) .
-            //  js_anchor("<i data-feather='x' class='icon-16'></i>", array('title' => app_lang('delete'), "class" => "delete", "data-id" => $data->id, "data-action-url" => get_uri("orders/delete_item"), "data-action" => "delete"))
+             // modal_anchor(get_uri("orders/item_modal_form"), "<i data-feather='edit' class='icon-16'></i>", array("class" => "edit", "title" => app_lang('edit_item'), "data-post-id" => $data->id, "data-post-order_id" => $data->order_id)) .
+                //  js_anchor("<i data-feather='x' class='icon-16'></i>", array('title' => app_lang('delete'), "class" => "delete", "data-id" => $data->id, "data-action-url" => get_uri("orders/delete_item"), "data-action" => "delete"))
         );
     }
 
     /* load item modal */
 
-    function item_modal_form()
-    {
+    function item_modal_form() {
         $this->check_access_to_store();
         $this->validate_submitted_data(array(
             "id" => "numeric"
@@ -114,8 +106,7 @@ class Orders extends Security_Controller
 
     /* add or edit an order item */
 
-    function save_item()
-    {
+    function save_item() {
         $this->check_access_to_store();
         $this->validate_submitted_data(array(
             "id" => "numeric"
@@ -186,8 +177,7 @@ class Orders extends Security_Controller
     }
 
     //update the sort value for order item
-    function update_item_sort_values($id = 0)
-    {
+    function update_item_sort_values($id = 0) {
         $this->check_access_to_store();
         $sort_values = $this->request->getPost("sort_values");
         if ($sort_values) {
@@ -210,8 +200,7 @@ class Orders extends Security_Controller
 
     /* delete or undo an order item */
 
-    function delete_item()
-    {
+    function delete_item() {
         $this->check_access_to_store();
         $this->validate_submitted_data(array(
             "id" => "required|numeric"
@@ -241,8 +230,7 @@ class Orders extends Security_Controller
 
     /* order total section */
 
-    private function _get_order_total_view($order_id = 0)
-    {
+    private function _get_order_total_view($order_id = 0) {
         if ($order_id) {
             $view_data["order_total_summary"] = $this->Orders_model->get_order_total_summary($order_id);
             $view_data["order_id"] = $order_id;
@@ -255,43 +243,44 @@ class Orders extends Security_Controller
 
 
 
-    function place_order()
-    {
-
+    function place_order() {
+        
         $order_total_summary = get_order_making_data();
         $qty_min_order = get_setting('qty_min_order');
         $qty_max_order = get_setting('qty_max_order');
-        $domain_name = $this->request->getPost('domain_name') . ".webhut.net";
+        $domain_name = $this->request->getPost('domain_name').".webhut.net";
         // $client_id = $this->request->getPost('client_id');
         $invoice_labels = make_labels_view_data('label', true, true);
-        $client_id = !empty($client_id) ? $client_id : $this->login_user->client_id;
-        // Validate the domain name
-        if (!empty($domain_name)) {
-            $isDomainExist = $this->Orders_model->is_domain_exists($domain_name);
-            if (!empty($isDomainExist)) {
-                echo json_encode(array("success" => false, 'message' => 'Domain already exist in database, please choose other domain name!'));
+        $client_id = !empty($client_id)? $client_id: $this->login_user->client_id;
+          // Validate the domain name
+          if( !empty($domain_name) ) {
+                $isDomainExist = $this->Orders_model->is_domain_exists($domain_name);
+                if( !empty($isDomainExist) ) {
+                    echo json_encode(array("success" => false, 'message' => 'Domain already exist in database, please choose other domain name!'));
+                    exit;
+                }
+                else if (!preg_match('/^[a-zA-Z0-9\-]+$/', $this->request->getPost('domain_name'))) {
+                    echo json_encode(array("success" => false, 'message' => 'Invalid domain format,please choose other domain name(Not Include "_"," ")!'));
+                    exit;
+                }
+            }else {
+                echo json_encode(array("success" => false, 'message' => 'Domain could not be empty!'));
                 exit;
-            } else if (!preg_match('/^[a-zA-Z0-9\-]+$/', $this->request->getPost('domain_name'))) {
-                echo json_encode(array("success" => false, 'message' => 'Invalid domain format,please choose other domain name(Not Include "_"," ")!'));
-                exit;
-            }
-        } else {
-            echo json_encode(array("success" => false, 'message' => 'Domain could not be empty!'));
-            exit;
-        }
+          }
 
-        $clientDueValue = get_setting("type_payment_" . $client_id);
-        $clientDueValue = !empty($clientDueValue) ? $clientDueValue : 'monthly';
-        if (!empty($clientDueValue) && ($clientDueValue == 'monthly')) {
-            $firstDateOfNextMonth = strtotime('first day of next month');
+         $clientDueValue = get_setting("type_payment_" . $client_id);
+         $clientDueValue = !empty($clientDueValue)? $clientDueValue: 'monthly';
+        if( !empty($clientDueValue) && ($clientDueValue == 'monthly') ) {
+            $firstDateOfNextMonth =strtotime('first day of next month') ;
 
             $dateType = 'Monthly';
             $dueDate = date('Y/m/d', $firstDateOfNextMonth);
-        } else if (!empty($clientDueValue) && ($clientDueValue == 'weekly')) {
-            $firstDateOfNextMonth = strtotime('next monday');
-
+        }else if( !empty($clientDueValue) && ($clientDueValue == 'weekly') ) {
+            $firstDateOfNextMonth =strtotime('next monday') ;
+            
             $dateType = 'Weekly';
             $dueDate = date('Y/m/d', $firstDateOfNextMonth);
+
         }
 
 
@@ -305,7 +294,7 @@ class Orders extends Security_Controller
         //         return;
         //     }
         // }
-
+        
 
 
         // // Put the condition for Vacations
@@ -367,11 +356,11 @@ class Orders extends Security_Controller
 
         $order_data = array(
             "client_id" => $this->request->getPost("client_id") ? $this->request->getPost("client_id") : $this->login_user->client_id,
-            "order_date" => !empty($this->request->getPost('start_date')) ? $this->request->getPost('start_date') : date('Y-m-d H:i:s'), // get_today_date(),
+             "order_date" => !empty($this->request->getPost('start_date'))? $this->request->getPost('start_date'): date('Y-m-d H:i:s'), // get_today_date(),
             "note" => $this->request->getPost('order_note'),
             "limit" =>  get_setting('limit'),
             // "delivery_date" => str_replace('T', ' ', $delivery_date),
-            "domain_name" => $this->request->getPost('domain_name') . ".webhut.net",
+             "domain_name" => $this->request->getPost('domain_name').".webhut.net",
             "created_by" => $this->login_user->id,
             "status_id" => $this->Order_status_model->get_first_status(),
             "tax_id" => get_setting('order_tax_id') ? get_setting('order_tax_id') : 0,
@@ -379,10 +368,10 @@ class Orders extends Security_Controller
             "company_id" => $this->request->getPost('company_id') ? $this->request->getPost('company_id') : get_default_company_id()
         );
 
-        //  echo'<pre>';
-        //  print_r($order_data);
-        // die();
-
+         //  echo'<pre>';
+         //  print_r($order_data);
+         // die();
+       
 
         $order_data["files"] = $files_data;
         $order_id = $this->Orders_model->ci_save($order_data);
@@ -423,7 +412,7 @@ class Orders extends Security_Controller
         //         "unit_type" => $data->unit_type ? $data->unit_type : "",
         //         "rate" => $data->rate ? $data->rate : 0,
         //         "total" => $data->total ? $data->total : 0,
-
+            
         //     );
 
         //     // echo '<pre>';
@@ -440,90 +429,89 @@ class Orders extends Security_Controller
             foreach ($order_items as $order_item) {
                 $order_item_data = array("order_id" => $order_id);
                 $this->Order_items_model->ci_save($order_item_data, $order_item->id);
-                $item =  $this->Items_model->get_one($order_item->item_id);
-                if (empty($item->stripe_product_id) || empty($item->stripe_price_id)) {
+                                $item =  $this->Items_model->get_one($order_item->item_id);
+                if(empty($item->stripe_product_id) || empty($item->stripe_price_id)) {
                     $getProductandPriceid = $this->_checkProductExistsByNameAndPrice($item);
-                    if (!empty($getProductandPriceid)) {
-                        $updated_item_stripe_data = $this->Items_model->update_where(array('stripe_product_id' => $getProductandPriceid['productID'], 'stripe_price_id' => $getProductandPriceid['priceID']), array('id' => $item->id));
+                    if(!empty($getProductandPriceid)) {                        
+                        $updated_item_stripe_data = $this->Items_model->update_where(array('stripe_product_id'=>$getProductandPriceid['productID'],'stripe_price_id'=>$getProductandPriceid['priceID']),array('id'=>$item->id));
                         $item = $this->Items_model->get_one($order_item->item_id);
                     }
+
                 }
                 $item_obj[] = $item;
             }
-
-            $redirect_to = get_uri("orders/view/$order_id");
-            // $redirect_to = get_uri("invoices/views/");
+ 
+              $redirect_to = get_uri("orders/view/$order_id");
+                 // $redirect_to = get_uri("invoices/views/");
 
 
             if ($this->login_user->user_type == "client") {
                 $redirect_to = get_uri("orders/preview/$order_id");
-                // $redirect_to = get_uri("invoices/view/");
+                    // $redirect_to = get_uri("invoices/view/");
             }
             //send notification
             log_notification("new_order_received", array("order_id" => $order_id));
 
-            echo json_encode(array("success" => true, "redirect_to" => $redirect_to, 'message' => app_lang('record_saved'), 'order_id' => $order_id, 'products' => $item_obj));
+            echo json_encode(array("success" => true, "redirect_to" => $redirect_to, 'message' => app_lang('record_saved'),'order_id' => $order_id ,'products'=>$item_obj));
         } else {
             echo json_encode(array("success" => false, 'message' => app_lang('error_occurred')));
         }
     }
 
     /*Function created by anuj for manage the stripe plans*/
-    private function createStripeProductAndPrice($item_obj)
-    {
-        if (empty($item_obj) || !is_object($item_obj))
-            return false;
+    private function createStripeProductAndPrice($item_obj) {
+    if(empty($item_obj) || !is_object($item_obj))
+        return false;
 
-        try {
-            // Create a new product
-            $product = \Stripe\Product::create([
-                'name' => $item_obj->title,
-                'description' => $item_obj->title,
+    try {
+        // Create a new product
+        $product = \Stripe\Product::create([
+            'name' => $item_obj->title,
+            'description' => $item_obj->title,
+        ]);
+        $paymentType = $item_obj->payment_type;
+        if ($paymentType === 'subscription') {
+            // Create a new price for subscription
+            $price = \Stripe\Price::create([
+                'product' => $product->id,
+                'unit_amount' => $item_obj->rate*100,
+                'currency' => 'usd',
+                'recurring' => ['interval' => 'month']
             ]);
-            $paymentType = $item_obj->payment_type;
-            if ($paymentType === 'subscription') {
-                // Create a new price for subscription
-                $price = \Stripe\Price::create([
-                    'product' => $product->id,
-                    'unit_amount' => $item_obj->rate * 100,
-                    'currency' => 'usd',
-                    'recurring' => ['interval' => 'month']
-                ]);
-            } else {
-                // Create a new price for one-time payment
-                $price = \Stripe\Price::create([
-                    'product' => $product->id,
-                    'unit_amount' => $item_obj->rate * 100,
-                    'currency' => 'usd',
-                    // No recurring attribute for one-time payments
-                ]);
-            }
-            // Return the new product and price IDs
-            return [
-                'productID' => $product->id,
-                'priceID' => $price->id
-            ];
-        } catch (\Stripe\Exception\ApiErrorException $e) {
-            // Handle error
-            error_log($e->getMessage());
-            return false;
+        } else {
+            // Create a new price for one-time payment
+            $price = \Stripe\Price::create([
+                'product' => $product->id,
+                'unit_amount' => $item_obj->rate*100,
+                'currency' => 'usd',
+                // No recurring attribute for one-time payments
+            ]);
         }
+        // Return the new product and price IDs
+        return [
+            'productID' => $product->id,
+            'priceID' => $price->id
+        ];
+    } catch (\Stripe\Exception\ApiErrorException $e) {
+        // Handle error
+        error_log($e->getMessage());
+        return false;
     }
+}
 
-    private function _checkProductExistsByNameAndPrice($item_obj)
-    {
-        if (empty($item_obj) || !is_object($item_obj))
-            return false;
-        require_once(APPPATH . "ThirdParty/Stripe/vendor/autoload.php");
-        $stripePaymentMethod = $this->Payment_methods_model->get_oneline_payment_method('stripe');
-        $payment_setting = $this->Payment_methods_model->get_one_with_settings($stripePaymentMethod->id);
-        \Stripe\Stripe::setApiKey($payment_setting->secret_key);
-        $productName = $item_obj->title;
-        $priceAmount = $item_obj->rate;
+    private function _checkProductExistsByNameAndPrice($item_obj) {
+    if(empty($item_obj) || !is_object($item_obj))
+        return false;
+    require_once(APPPATH . "ThirdParty/Stripe/vendor/autoload.php");
+    $stripePaymentMethod = $this->Payment_methods_model->get_oneline_payment_method('stripe');
+    $payment_setting = $this->Payment_methods_model->get_one_with_settings($stripePaymentMethod->id);
+    \Stripe\Stripe::setApiKey($payment_setting->secret_key);
+    $productName = $item_obj->title;
+    $priceAmount = $item_obj->rate;     
         try {
             // Retrieve all products
             $priceObj = array();
-            $priceAmount = $priceAmount * 100;
+            $priceAmount = $priceAmount*100;
             $products = \Stripe\Product::all();
             foreach ($products->data as $product) {
                 if ($product->name === $productName) {
@@ -531,20 +519,20 @@ class Orders extends Security_Controller
                     $prices = \Stripe\Price::all(['product' => $product->id]);
                     foreach ($prices->data as $price) {
                         if ($price->unit_amount == $priceAmount) {
-                            $priceObj =  [
+                           $priceObj =  [
                                 'productID' => $price->product,
                                 'priceID' => $price->id
-                            ];
+                           ];
                         }
                     }
                 }
             }
-            if (empty($priceObj)) {
-                $priceObj = $this->createStripeProductAndPrice($item_obj);
-            }
-            if (!empty($priceObj))
+           if(empty($priceObj)) {
+            $priceObj = $this->createStripeProductAndPrice($item_obj);
+           }
+            if(!empty($priceObj))
                 return $priceObj;
-            else
+            else 
                 return false;
         } catch (Stripe\Exception\ApiErrorException $e) {
             echo 'Error retrieving products: ' . $e->getMessage();
@@ -557,8 +545,7 @@ class Orders extends Security_Controller
 
     /* list of orders, prepared for datatable  */
 
-    public function list_data()
-    {
+    public function list_data() {
         $this->access_only_allowed_members();
 
         $custom_fields = $this->Custom_fields_model->get_available_fields_for_table("orders", $this->login_user->is_admin, $this->login_user->user_type);
@@ -569,7 +556,7 @@ class Orders extends Security_Controller
             "order_date" => $this->request->getPost("start_date"),
             "deadline" => $this->request->getPost("end_date"),
             "custom_fields" => $custom_fields,
-            "client_id" => $this->request->getPost('client_id'),
+             "client_id" => $this->request->getPost('client_id'),
 
             "custom_field_filter" => $this->prepare_custom_field_filter_values("orders", $this->login_user->is_admin, $this->login_user->user_type)
         );
@@ -581,81 +568,78 @@ class Orders extends Security_Controller
         $result = array();
         $list_data = array_reverse($list_data);
         // echo "<pre>";print_R($list_data);die;
+        
+        if( isset($_REQUEST['datarange']) && !empty($_REQUEST['datarange']) && ($_REQUEST['datarange'] == 'production') ) {
+            foreach ($list_data as $data) { 
+                 if(empty($data->delivery_date))
+                     continue;
 
-        if (isset($_REQUEST['datarange']) && !empty($_REQUEST['datarange']) && ($_REQUEST['datarange'] == 'production')) {
-            foreach ($list_data as $data) {
-                if (empty($data->delivery_date))
-                    continue;
+                 $temp_delivery_date = date("Y-m-d", strtotime($data->delivery_date));
+                 $temp_tomorrow_date = date("Y-m-d", strtotime('+1 day'));
 
-                $temp_delivery_date = date("Y-m-d", strtotime($data->delivery_date));
-                $temp_tomorrow_date = date("Y-m-d", strtotime('+1 day'));
-
-                if ($temp_delivery_date != $temp_tomorrow_date)
-                    continue;
+                 if( $temp_delivery_date != $temp_tomorrow_date )
+                     continue;
                 $result[] = $this->_make_row($data, $custom_fields);
             }
-        } else {
+        }else {
             foreach ($list_data as $data) {
 
                 $result[] = $this->_make_row($data, $custom_fields);
             }
         }
-
+    
         echo json_encode(array("data" => $result));
     }
 
 
     // Harsh's Code for setup community
-    function modal_community()
-    {
-
+    function modal_community(){ 
+        
         $view_data = array();
         $view_data['order_id'] = isset($_GET['order_id']) ? $_GET['order_id'] : 0;
         $order_detail =  $this->Orders_model->get_one($view_data['order_id']);
-        $user_detail = $this->Users_model->get_one($order_detail->client_id);
+        $user_detail = $this->Users_model ->get_one($order_detail->client_id);
         $view_data['view'] = isset($_GET['view']) ? $_GET['view'] : 0;
         $view_data['user_email'] = $user_detail->email;
         $view_data['domain'] = $this->Orders_model->get_domain($view_data['order_id']);
-        return $this->template->view('orders/setup_community', $view_data);
+        return $this->template->view('orders/setup_community',$view_data);
     }
 
-    function view_invoices()
-    {
+    function view_invoices(){ 
         $order_id = $_GET['order_id'];
         $order_detail =  $this->Orders_model->get_one($_GET['order_id']);
-        $order_item =  $this->Order_items_model->get_details(array('order_id' => $_GET['order_id']))->getRow();
-        $user_detail = $this->Users_model->get_one($order_detail->client_id);
-        if (empty($order_detail->stripe_response)) {
+        $order_item =  $this->Order_items_model->get_details(array('order_id'=>$_GET['order_id']))->getRow();
+        $user_detail = $this->Users_model ->get_one($order_detail->client_id);
+        if(empty($order_detail->stripe_response)){
             return false;
         }
         $view_data['user_detail'] = $user_detail;
         $view_data['order_detail'] = $order_detail;
         $stripe_response = $order_detail->stripe_response;
-        $stripeResponseObj = json_decode(str_replace("StripeCheckoutSession JSON: ", "", $order_detail->stripe_response));
-        $subscriptionId = isset($stripeResponseObj->subscription) ? $stripeResponseObj->subscription : '';
-        if (empty($subscriptionId))
+        $stripeResponseObj = json_decode(str_replace("StripeCheckoutSession JSON: ","",$order_detail->stripe_response));
+        $subscriptionId = isset($stripeResponseObj->subscription)?$stripeResponseObj->subscription:'';
+        if(empty($subscriptionId))
             return false;
 
         // Get Stripe keys
         $stripePaymentMethod = $this->Payment_methods_model->get_oneline_payment_method('stripe');
         $payment_setting = $this->Payment_methods_model->get_one_with_settings($stripePaymentMethod->id);
 
-        if (empty($payment_setting->secret_key) || empty($payment_setting->publishable_key))
+        if(empty($payment_setting->secret_key) || empty($payment_setting->publishable_key))
             return false;
         \Stripe\Stripe::setApiKey($payment_setting->secret_key);
         $allInvoices = $this->getInvoicesBySubscriptionId($subscriptionId);
 
-        if (!empty($allInvoices)) {
+        if(!empty($allInvoices)){
             foreach ($allInvoices as &$item) {
-                $item['invoice_title'] = !empty($order_item) ? $order_item->title : 'null';
+                $item['invoice_title'] = !empty($order_item)?$order_item->title:'null';
             }
             $view_data['all_invoices'] = $allInvoices;
         }
-        return $this->template->view('orders/view_invoices', $view_data);
+        return $this->template->view('orders/view_invoices',$view_data);
     }
-
-    protected function getInvoicesBySubscriptionId($subscriptionId)
-    {
+    
+    protected function getInvoicesBySubscriptionId($subscriptionId) {
         try {
             // Retrieve all invoices for the given subscription ID
             $invoices = \Stripe\Invoice::all([
@@ -663,7 +647,7 @@ class Orders extends Security_Controller
             ]);
 
             $invoiceDetails = [];
-
+            
             foreach ($invoices->data as $invoice) {
                 $timestamp = $invoice->status_transitions->paid_at;
                 $date = date('Y-m-d H:i:s', $timestamp);
@@ -678,6 +662,7 @@ class Orders extends Security_Controller
             }
 
             return $invoiceDetails;
+
         } catch (\Exception $e) {
             // Handle exceptions
             echo 'Error: ' . $e->getMessage();
@@ -685,66 +670,63 @@ class Orders extends Security_Controller
         }
     }
 
-    function setup_community_post()
-    {
+    function setup_community_post(){
         $order_id = $_GET['order_id'];
         $order_detail =  $this->Orders_model->get_one($_GET['order_id']);
-        $user_detail = $this->Users_model->get_one($order_detail->client_id);
+        $user_detail = $this->Users_model ->get_one($order_detail->client_id);
         $view_data = array();
         $view_data['order_id'] = $order_id;
         $view_data['user_email'] = $user_detail->email;
         $view_data['domain'] = $this->Orders_model->get_domain($order_id);
-        return $this->template->view('orders/loader', $view_data);
+        return $this->template->view('orders/loader',$view_data);
     }
-
-    function install_community()
-    {
+    
+    function install_community(){
         $order_id = $_GET['order_id'];
         $this->Orders_model->set_community($order_id);
         $domain = $this->Orders_model->get_domain($order_id);
-        $setup = $this->create_folder('', '', $this->Orders_model->get_domain($order_id), $order_id);
-        if (!empty($setup)) {
+        $setup = $this->create_folder('','',$this->Orders_model->get_domain($order_id),$order_id);
+        if(!empty($setup)) {
             echo json_encode(array("success" => true));
         } else {
             $order_obj = $this->Orders_model->get_one($order_id);
-            if (!empty($order_obj->is_domain_created)) {
-                echo json_encode(array("success" => true));
+            if(!empty($order_obj->is_domain_created)) {
+                echo json_encode(array("success" => true));    
             } else {
                 echo json_encode(array("success" => false));
             }
         }
     }
 
-    function create_folder($sourceFolderPath = "", $destinationFolderPath = "", $domain = "", $order_id = 0)
-    {
+    function create_folder($sourceFolderPath = "", $destinationFolderPath = "",$domain = "",$order_id = 0){
 
-        if (empty($sourceFolderPath) && empty($destinationFolderPath)) {
-            $sourceFolderPath = "/var/www/html/dummy-community";
+       if(empty($sourceFolderPath)&& empty($destinationFolderPath)) {
+          $sourceFolderPath = "/var/www/html/dummy-community";
+          
+          $destinationFolderPath = '/var/www/html/';
+          
 
-            $destinationFolderPath = '/var/www/html/';
-
-
-            //$newFolderName = $this->login_user->first_name."_".$this->login_user->id;
-            $newFolderName = $domain;
-            $destinationFolderPath = $destinationFolderPath . $newFolderName;
-
-
-            // Ensure source folder exists
+          //$newFolderName = $this->login_user->first_name."_".$this->login_user->id;
+          $newFolderName = $domain;
+          $destinationFolderPath = $destinationFolderPath . $newFolderName;
+          
+          
+              // Ensure source folder exists
             if (!is_dir($sourceFolderPath)) {
                 return false;
             }
             // Generate a new name for the destination folder
             $destination = $destinationFolderPath;
             $source = $sourceFolderPath;
-
+        
             // Ensure destination folder does not already exist to prevent overwriting
             if (is_dir($destination)) {
-                return false;
+               return false;
             }
             // Escape shell arguments to prevent command injection
             $escapedSource = escapeshellarg($source);
             $escapedDestination = escapeshellarg($destination);
-
+        
             // Shell command to copy the folder
             $command = "cp -r $escapedSource $escapedDestination  2>&1";
             // Execute the shell command
@@ -753,113 +735,124 @@ class Orders extends Security_Controller
             exec($command, $output, $retval);
             // Check if the command was successful
             if ($retval == 0) {
+                exec("chmod -R 777 " . escapeshellarg($destination), $output, $retval);
+                
                 //If directory copied successfully now we have to change the path in cache
-                $filePath = $destination . '/application/settings/cache.php';
-                $newCachePath = $destination . '/temporary/cache';
+                $filePath = $destination.'/application/settings/cache.php';
+                $newCachePath = $destination.'/temporary/cache';
                 $update_cache_path = $this->_changeCachePaths($filePath, $newCachePath);
 
                 // CODE FOR DATABASE SETUP
-                $db_name = str_replace("-", "_", $domain);
-                $db_name = "webhut96_" . str_replace(".webhut.net", "", $db_name);
+                $db_name = str_replace("-","_",$domain);
+                $db_name = "webhut96_".str_replace(".webhut.net","", $db_name);
                 # SQL command to create a new database
-                $sql_command = "CREATE DATABASE IF NOT EXISTS $db_name;";
+                $sql_command ="CREATE DATABASE IF NOT EXISTS $db_name;";
 
                 # Execute the SQL command
-
-                $command_create_database = "mysql -u community_admin  -e " . "'$sql_command'  2>&1";
+                
+                $command_create_database = "mysql -u community_admin  -e "."'$sql_command'  2>&1";
                 // Execute the shell command
                 $output = null;
                 $retval = null;
                 exec($command_create_database, $output, $retval);
-                if ($retval == 0) {
+                if($retval == 0) {
                     $command_import_database = "mysql -u community_admin $db_name < /var/www/html/webhut96_dummy_community.sql";
                     // Execute the shell command
                     $output = null;
                     $retval = null;
                     exec($command_import_database, $output, $retval);
-                    if ($retval == 0) {
+                    if($retval == 0) {
                         // CHANGE THE DATABASE NAME IN COMMUNITY
-                        $filePath = $destination . '/application/settings/database.php';
+                        $filePath = $destination.'/application/settings/database.php';
                         $update_database_name = $this->_changeDatabaseName($filePath, $db_name);
-                        if (!empty($update_database_name)) {
+                        if(!empty($update_database_name)) {
                             exec("systemctl restart mysql", $output, $retval);
                             exec("systemctl restart apache2", $output, $retval);
 
                             // CODE FOR CREATING SUBDOMAIN                          
                             $apiToken = getenv('DO_TOKEN');
                             $domain_main = 'webhut.net';
-                            $subdomain = str_replace(".webhut.net", "", $domain);
+                            $subdomain = str_replace(".webhut.net","", $domain);
                             $dropletIp = '143.198.73.14';
-                            $createSubDomain = $this->_createSubdomain($apiToken, $domain_main, $subdomain, $dropletIp);
+                            $createSubDomain = $this->_createSubdomain($apiToken,$domain_main, $subdomain, $dropletIp);
 
-                            if (!empty($createSubDomain)) {
+                            if(!empty($createSubDomain)) {
                                 $order_update['is_domain_created'] = 1;
                                 $this->Orders_model->ci_save($order_update, $order_id);
                                 $order_obj = $this->Orders_model->get_one($order_id);
+                                
+                                // Update the client email start
+                                // $this->Orders_model->update_user_email($order_id, $db_name);
+                                // Update the client email end
 
                                 $subdomain = $domain;
-                                $documentRoot = "/var/www/html/" . $domain;
+                                $documentRoot = "/var/www/html/".$domain;
                                 $output = $this->_createApacheConfig($subdomain, $documentRoot);
                                 return true;
                             } else {
                                 return false;
                             }
+
                         } else {
                             return false;
                         }
                     } else {
                         return false;
                     }
+
                 } else {
                     return false;
                 }
+                
             } else {
                 return false;
             }
+          
+          
         }
-    }
 
+        
+    }
+    
     // Function for update the cache file 
-    private function _changeCachePaths($filePath, $newCachePath)
-    {
+    private function _changeCachePaths($filePath, $newCachePath) {
         // Ensure the file exists
         if (!file_exists($filePath)) {
             return false;
         }
-
+    
         // Read the file contents
         $fileContents = file_get_contents($filePath);
-
+    
         // Define the patterns to match the cache paths
         $patternCacheDir = '/(\'cache_dir\'\s*=>\s*[\'"]).*?(["\'],)/';
         $patternDefaultFilePath = '/(\'default_file_path\'\s*=>\s*[\'"]).*?(["\'],)/';
-
+    
         // Replace the old cache paths with the new cache path
         $replacementCacheDir = '${1}' . addslashes($newCachePath) . '${2}';
         $replacementDefaultFilePath = '${1}' . addslashes($newCachePath) . '${2}';
-
+        
         $newContents = preg_replace($patternCacheDir, $replacementCacheDir, $fileContents);
         $newContents = preg_replace($patternDefaultFilePath, $replacementDefaultFilePath, $newContents);
-
+    
         // Check if the replacements were successful
         if ($newContents === null) {
-            return false;
+           return false;
         }
-
+    
         // Write the new contents back to the file
         if (file_put_contents($filePath, $newContents) === false) {
             return false;
         }
-        return true;
+       return true;
     }
 
-    private function _changeDatabaseName($filePath, $dbname)
-    {
+    private function _changeDatabaseName($filePath, $dbname) {
         // Ensure the file exists
         if (!file_exists($filePath)) {
             return false;
         }
-
+    
         // Read the file contents
         $fileContent = file_get_contents($filePath);
 
@@ -880,37 +873,35 @@ class Orders extends Security_Controller
 
 
 
-    private function _makeApiRequest($apiToken, $url, $method, $data = null)
-    {
+    private function _makeApiRequest($apiToken,$url, $method, $data = null) {
         $ch = curl_init();
-
+        
         $headers = [
             'Content-Type: application/json',
             'Authorization: Bearer ' . $apiToken,
         ];
-
+        
         curl_setopt($ch, CURLOPT_URL, $url);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
         curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-
+        
         if ($data) {
             curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
         }
-
+        
         $response = curl_exec($ch);
-
+        
         if (curl_errno($ch)) {
             echo 'Error:' . curl_error($ch);
         }
-
+        
         curl_close($ch);
-
+        
         return json_decode($response, true);
     }
 
-    private function _createSubdomain($apiToken, $domain, $subdomain, $dropletIp)
-    {
+    private function _createSubdomain($apiToken,$domain, $subdomain, $dropletIp) {
         $url = "https://api.digitalocean.com/v2/domains/$domain/records";
         $data = [
             'type' => 'A',
@@ -918,9 +909,9 @@ class Orders extends Security_Controller
             'data' => $dropletIp,
             'ttl' => 1800,
         ];
-
-        $response = $this->_makeApiRequest($apiToken, $url, 'POST', $data);
-
+        
+        $response = $this->_makeApiRequest($apiToken,$url, 'POST', $data);
+        
         if (isset($response['domain_record'])) {
             return true;
         } else {
@@ -967,27 +958,28 @@ class Orders extends Security_Controller
 
         // Make the shell script executable
         chmod($scriptPath, 0755);
-        if (file_exists($scriptPath)) {
+        if (file_exists($scriptPath)){
             shell_exec("dos2unix $scriptPath 2>&1");
             // Execute the shell script using sudo
             $logFile = '/tmp/create_apache_config.log';
             shell_exec("nohup sudo bash $scriptPath >> $logFile 2>&1 &");
             return true;
         }
+        
+        
     }
 
 
+ 
 
 
 
 
-
-    // Harsh Code end here for community setup
+// Harsh Code end here for community setup
 
     /* prepare a row of order list table */
 
-    private function _new_make_row($data, $custom_fields)
-    {
+    private function _new_make_row($data, $custom_fields) {
         $order_url = "";
         $order_id = $data->id;
         if ($this->login_user->user_type == "staff") {
@@ -1000,41 +992,41 @@ class Orders extends Security_Controller
         $client = anchor(get_uri("clients/view/" . $data->client_id), $data->company_name);
         $total_quantity = get_order_making_data($data->id);
 
-        $temp_total_qty = !empty($total_quantity['order_total_summary']->total_quantity) ? $total_quantity['order_total_summary']->total_quantity : 0;
+        $temp_total_qty = !empty($total_quantity['order_total_summary']->total_quantity)? $total_quantity['order_total_summary']->total_quantity: 0;
 
-        // $checkmark = js_anchor("<span class='checkbox-blank mr15 float-start' id 'mycheck'></span>", );
+              // $checkmark = js_anchor("<span class='checkbox-blank mr15 float-start' id 'mycheck'></span>", );
 
-        if (isset($_REQUEST['datarange']) && !empty($_REQUEST['datarange']) && ($_REQUEST['datarange'] == 'yearly'))
-            $checkmark = js_anchor("<input type='checkbox' name='yearly_checkbox_order_ids' id 'checkbox_$order_id' value='$order_id' />",);
-        else if (isset($_REQUEST['datarange']) && !empty($_REQUEST['datarange']) && ($_REQUEST['datarange'] == 'production'))
-            $checkmark = js_anchor("<input type='checkbox' name='production_checkbox_order_ids' id 'checkbox_$order_id' value='$order_id' />",);
+        if( isset($_REQUEST['datarange']) && !empty($_REQUEST['datarange']) && ($_REQUEST['datarange'] == 'yearly') )
+            $checkmark = js_anchor("<input type='checkbox' name='yearly_checkbox_order_ids' id 'checkbox_$order_id' value='$order_id' />", );
+        else if( isset($_REQUEST['datarange']) && !empty($_REQUEST['datarange']) && ($_REQUEST['datarange'] == 'production') )
+            $checkmark = js_anchor("<input type='checkbox' name='production_checkbox_order_ids' id 'checkbox_$order_id' value='$order_id' />", );
         else
-            $checkmark = js_anchor("<input type='checkbox' name='monthly_checkbox_order_ids' id 'checkbox_$order_id' value='$order_id' />",);
+            $checkmark = js_anchor("<input type='checkbox' name='monthly_checkbox_order_ids' id 'checkbox_$order_id' value='$order_id' />", );
 
 
+            
 
+        $temp_delivery_date = !empty($data->delivery_date)? format_to_date($data->delivery_date, false): '-';
 
-        $temp_delivery_date = !empty($data->delivery_date) ? format_to_date($data->delivery_date, false) : '-';
-
-
+        
         // $row_data = array(
         //      $checkmark,
-
+          
         //      $order_url,
         //     $client,
         //     $data->order_date,
         //     format_to_date($data->order_date, false),
         //     "abc",
-
+            
         //    $temp_total_qty,
         //     to_currency($data->order_value)
         // );
         $row_data = array(
-            $checkmark,
+            $checkmark, 
             $order_url,
             $client_id,
             $data->order_date,
-            $temp_delivery_date,
+             $temp_delivery_date,
             format_to_date($data->order_date, false),
             to_currency($data->order_value)
         );
@@ -1051,15 +1043,15 @@ class Orders extends Security_Controller
         }
 
         $row_data[] = modal_anchor(get_uri("orders/modal_form"), "<i data-feather='edit' class='icon-16'></i>", array("class" => "edit", "title" => app_lang('edit_order'), "data-post-id" => $data->id))
-            . js_anchor("<i data-feather='x' class='icon-16'></i>", array('title' => app_lang('delete_order'), "class" => "delete", "data-id" => $data->id, "data-action-url" => get_uri("orders/delete"), "data-action" => "delete"));
+                . js_anchor("<i data-feather='x' class='icon-16'></i>", array('title' => app_lang('delete_order'), "class" => "delete", "data-id" => $data->id, "data-action-url" => get_uri("orders/delete"), "data-action" => "delete"));
 
         return $row_data;
+       
     }
 
     /* prepare a row of order list table */
 
-    private function _make_row($data, $custom_fields)
-    {
+    private function _make_row($data, $custom_fields) {
         $order_url = "";
         if ($this->login_user->user_type == "staff") {
             $order_url = anchor(get_uri("orders/view/" . $data->id), get_order_id($data->id));
@@ -1067,15 +1059,15 @@ class Orders extends Security_Controller
             //for client
             $order_url = anchor(get_uri("orders/preview/" . $data->id), get_order_id($data->id));
         }
-        if ($data->company_name === null) {
+        if($data->company_name === null){
             $data->company_name = "";
         }
         $client = anchor(get_uri("clients/view/" . $data->client_id), $data->company_name);
         $total_quantity = get_order_making_data($data->id);
 
-        $temp_total_qty = !empty($total_quantity['order_total_summary']->total_quantity) ? $total_quantity['order_total_summary']->total_quantity : 0;
+        $temp_total_qty = !empty($total_quantity['order_total_summary']->total_quantity)? $total_quantity['order_total_summary']->total_quantity: 0;
 
-        // $checkmark = js_anchor("<span class='checkbox-blank mr15 float-start' id 'mycheck'></span>", );
+            // $checkmark = js_anchor("<span class='checkbox-blank mr15 float-start' id 'mycheck'></span>", );
 
         // if( isset($_REQUEST['datarange']) && !empty($_REQUEST['datarange']) && ($_REQUEST['datarange'] == 'yearly') )
         //     $checkmark = js_anchor("<input type='checkbox' name='yearly_checkbox_order_ids' id 'checkbox_$order_id' value='$order_id' />", );
@@ -1085,39 +1077,39 @@ class Orders extends Security_Controller
         //     $checkmark = js_anchor("<input type='checkbox' name='monthly_checkbox_order_ids' id 'checkbox_$order_id' value='$order_id' />", );
 
 
-
-        $temp_delivery_date = !empty($data->delivery_date) ? format_to_date($data->delivery_date, false) : '-';
-        $checkmark = js_anchor("<input type='checkbox' name='monthly_checkbox_order_ids' id 'checkbox_ $data->id' value=' $data->id' />",);
-        $limit = get_setting("limit");
-        $domain_name = $data->domain_name;
-        $client_id = $data->client_id;
+            
+         $temp_delivery_date = !empty($data->delivery_date)? format_to_date($data->delivery_date, false): '-';
+          $checkmark = js_anchor("<input type='checkbox' name='monthly_checkbox_order_ids' id 'checkbox_ $data->id' value=' $data->id' />", );
+          $limit = get_setting("limit");
+          $domain_name = $data->domain_name;
+          $client_id = $data->client_id;
         $order_date = $data->order_date;
+        
+         
 
-
-
-        $futureDate = date('Y-m-d', strtotime("+$limit months", strtotime($order_date)));
+             $futureDate=date('Y-m-d', strtotime("+$limit months", strtotime($order_date)));
         //      echo'<pre>';
         // pritnt_r($futureDate);
         // die;
 
-
-
-
+             
+         
+ 
         if ($this->login_user->user_type == "staff") {
             $row_data = array(
-                $checkmark,
+               $checkmark, 
                 $order_url,
                 $data->company_name,
                 $order_date,
-                format_to_date($order_date, false),
-                format_to_date($order_date),
-                format_to_date($futureDate),
-
-
-                $domain_name,
+                 format_to_date($order_date, false),
+                 format_to_date($order_date),
+                  format_to_date($futureDate),
+                 
+    
+                 $domain_name,
                 // $limit . ' ' . 'months',
-                // $limit . ' ' . 'months',
-
+                 // $limit . ' ' . 'months',
+               
                 to_currency($data->order_value)
             );
         } else {
@@ -1125,15 +1117,15 @@ class Orders extends Security_Controller
                 $order_url,
                 $data->company_name,
                 $order_date,
-                format_to_date($order_date, false),
-                format_to_date($order_date),
-                format_to_date($futureDate),
-
-
-                $domain_name,
+                 format_to_date($order_date, false),
+                 format_to_date($order_date),
+                  format_to_date($futureDate),
+                 
+    
+                 $domain_name,
                 // $limit . ' ' . 'months',
-                // $limit . ' ' . 'months',
-
+                 // $limit . ' ' . 'months',
+               
                 to_currency($data->order_value)
             );
         }
@@ -1143,45 +1135,42 @@ class Orders extends Security_Controller
         } else {
             $row_data[] = "<span style='background-color: $data->order_status_color;' class='badge'>$data->order_status_title</span>";
         }
-
-
+        
+        
         foreach ($custom_fields as $field) {
             $cf_id = "cfv_" . $field->id;
             $row_data[] = $this->template->view("custom_fields/output_" . $field->field_type, array("value" => $data->$cf_id));
         }
-
+        
         if ($this->login_user->user_type == "staff") {
             $row_data[] = modal_anchor(get_uri("orders/modal_form"), "<i data-feather='edit' class='icon-16'></i>", array("class" => "edit", "title" => app_lang('edit_order'), "data-post-id" => $data->id))
-                . js_anchor("<i data-feather='x' class='icon-16'></i>", array('title' => app_lang('delete_order'), "class" => "delete", "data-id" => $data->id, "data-action-url" => get_uri("orders/delete"), "data-action" => "delete"));
+                    . js_anchor("<i data-feather='x' class='icon-16'></i>", array('title' => app_lang('delete_order'), "class" => "delete", "data-id" => $data->id, "data-action-url" => get_uri("orders/delete"), "data-action" => "delete"));
         }
-        if (isset($data->is_community_set) && $data->is_community_set == 1) {
-            $row_data[] = modal_anchor(get_uri("orders/modal_community?view=1&order_id=" . ($data->id)), "View", array("class" => "edit btn btn-success ", "title" => "View Community"));
-        } else {
-            $row_data[] = modal_anchor(get_uri("orders/modal_community?order_id=" . ($data->id)), "Setup", array("class" => "edit btn btn-primary", "title" => "Setup Community"));
+        if(isset($data->is_community_set) && $data->is_community_set == 1 ){
+            $row_data[] = modal_anchor(get_uri("orders/modal_community?view=1&order_id=".($data->id)), "View", array("class" => "edit btn btn-success ", "title" => "View Community")); 
+        }else{        
+            $row_data[] = modal_anchor(get_uri("orders/modal_community?order_id=".($data->id)), "Setup", array("class" => "edit btn btn-primary", "title" => "Setup Community"));  
         }
-        if (!empty($data->stripe_response)) {
-            $row_data[] = modal_anchor(get_uri("orders/view_invoices?order_id=" . ($data->id)), "View Invoice", array("class" => "edit btn btn-success", "title" => "View Invoices"));
+        if(!empty($data->stripe_response)) {
+            $row_data[] = modal_anchor(get_uri("orders/view_invoices?order_id=".($data->id)), "View Invoice", array("class" => "edit btn btn-success", "title" => "View Invoices"));
         } else {
             $row_data[] = "<a href = 'javascript:void(0)' title = 'No Invoice Available' class = 'btn btn-secondary'>View Invoice</a>";
         }
         return $row_data;
     }
     //load the yearly view of order list
-    function yearly()
-    {
+    function yearly() {
         return $this->template->view("orders/yearly_orders");
     }
 
-    function production()
-    {
+    function production() {
         return $this->template->view("orders/production");
     }
 
 
     /* load new order modal */
 
-    function modal_form()
-    {
+    function modal_form() {
         $this->access_only_allowed_members();
 
         $this->validate_submitted_data(array(
@@ -1210,8 +1199,7 @@ class Orders extends Security_Controller
         return $this->template->view('orders/modal_form', $view_data);
     }
 
-    private function _get_clients_dropdown()
-    {
+    private function _get_clients_dropdown() {
         $clients_dropdown = array("" => "-");
         $clients = $this->Clients_model->get_dropdown_list(array("company_name"), "id", array("is_lead" => 0));
         foreach ($clients as $key => $value) {
@@ -1222,8 +1210,7 @@ class Orders extends Security_Controller
 
     /* add, edit or clone an order */
 
-    function save()
-    {
+    function save() {
         $this->access_only_allowed_members();
 
         $this->validate_submitted_data(array(
@@ -1248,12 +1235,12 @@ class Orders extends Security_Controller
             "company_id" => $this->request->getPost('company_id') ? $this->request->getPost('company_id') : get_default_company_id(),
             "note" => $this->request->getPost('order_note'),
             "status_id" => $this->request->getPost('status_id'),
-            "domain_name" => $this->request->getPost('domain_name')
-
+              "domain_name" => $this->request->getPost('domain_name')
+            
         );
 
-
-
+       
+    
 
         //check if the status has been changed,
         //if so, send notification
@@ -1282,8 +1269,7 @@ class Orders extends Security_Controller
 
     /* delete or undo an order */
 
-    function delete()
-    {
+    function delete() {
         $this->access_only_allowed_members();
 
         $this->validate_submitted_data(array(
@@ -1308,8 +1294,7 @@ class Orders extends Security_Controller
 
     /* load order details view */
 
-    function view($order_id = 0)
-    {
+    function view($order_id = 0) {
         $this->access_only_allowed_members();
 
         if ($order_id) {
@@ -1319,7 +1304,7 @@ class Orders extends Security_Controller
             $view_data = get_order_making_data($order_id);
 
             // @Riya - Apply the discount
-            if (isset($view_data['order_info']->client_id) && !empty($view_data['order_info']->client_id)) {
+            if( isset($view_data['order_info']->client_id) && !empty($view_data['order_info']->client_id) ) {
                 $data = array(
                     "discount_type" => get_setting('discount_type_' . $view_data['order_info']->client_id),
                     "discount_amount" => get_setting('discount_' . $view_data['order_info']->client_id),
@@ -1333,7 +1318,7 @@ class Orders extends Security_Controller
 
             validate_numeric_value($order_id);
             $view_data = get_order_making_data($order_id);
-
+            
 
             if ($view_data) {
                 $access_info = $this->get_access_info("invoice");
@@ -1355,8 +1340,7 @@ class Orders extends Security_Controller
         }
     }
 
-    private function check_access_to_this_order($order_data)
-    {
+    private function check_access_to_this_order($order_data) {
         //check for valid order
         if (!$order_data) {
             show_404();
@@ -1371,8 +1355,7 @@ class Orders extends Security_Controller
         }
     }
 
-    function download_pdf($order_id = 0, $mode = "download")
-    {
+    function download_pdf($order_id = 0, $mode = "download") {
         if ($order_id) {
             validate_numeric_value($order_id);
             $order_data = get_order_making_data($order_id);
@@ -1390,8 +1373,7 @@ class Orders extends Security_Controller
     }
 
     //view html is accessable to client only.
-    function preview($order_id = 0, $show_close_preview = false)
-    {
+    function preview($order_id = 0, $show_close_preview = false) {
         $this->check_access_to_store();
 
         if ($order_id) {
@@ -1416,8 +1398,7 @@ class Orders extends Security_Controller
 
     /* prepare suggestion of order item */
 
-    function get_order_item_suggestion()
-    {
+    function get_order_item_suggestion() {
         $key = $_REQUEST["q"];
         $suggestion = array();
 
@@ -1434,8 +1415,7 @@ class Orders extends Security_Controller
         echo json_encode($suggestion);
     }
 
-    function get_order_item_info_suggestion()
-    {
+    function get_order_item_info_suggestion() {
         $item = $this->Invoice_items_model->get_item_info_suggestion($this->request->getPost("item_name"), $this->login_user->user_type);
         if ($item) {
             $item->rate = $item->rate ? to_decimal_format($item->rate) : "";
@@ -1445,8 +1425,7 @@ class Orders extends Security_Controller
         }
     }
 
-    function save_order_status($id = 0)
-    {
+    function save_order_status($id = 0) {
         validate_numeric_value($id);
         $this->access_only_allowed_members();
         if (!$id) {
@@ -1470,8 +1449,7 @@ class Orders extends Security_Controller
 
     /* return a row of order list table */
 
-    private function _row_data($id)
-    {
+    private function _row_data($id) {
         $custom_fields = $this->Custom_fields_model->get_available_fields_for_table("orders", $this->login_user->is_admin, $this->login_user->user_type);
 
         $options = array("id" => $id, "custom_fields" => $custom_fields);
@@ -1481,8 +1459,7 @@ class Orders extends Security_Controller
 
     /* load discount modal */
 
-    function discount_modal_form()
-    {
+    function discount_modal_form() {
         $this->access_only_allowed_members();
 
         $this->validate_submitted_data(array(
@@ -1498,8 +1475,7 @@ class Orders extends Security_Controller
 
     /* save discount */
 
-    function save_discount()
-    {
+    function save_discount() {
         $this->access_only_allowed_members();
 
         $this->validate_submitted_data(array(
@@ -1529,8 +1505,7 @@ class Orders extends Security_Controller
 
     /* list of order items, prepared for datatable  */
 
-    function item_list_data($order_id = 0)
-    {
+    function item_list_data($order_id = 0) {
         validate_numeric_value($order_id);
         $this->access_only_allowed_members();
 
@@ -1544,8 +1519,7 @@ class Orders extends Security_Controller
 
     /* list of order of a specific client, prepared for datatable  */
 
-    function order_list_data_of_client($client_id)
-    {
+    function order_list_data_of_client($client_id) {
         validate_numeric_value($client_id);
         $this->check_access_to_store();
 
@@ -1564,20 +1538,17 @@ class Orders extends Security_Controller
 
     /* upload a file */
 
-    function upload_file()
-    {
+    function upload_file() {
         upload_file_to_temp();
     }
 
     /* check valid file for orders */
 
-    function validate_orders_file()
-    {
+    function validate_orders_file() {
         return validate_post_file($this->request->getPost("file_name"));
     }
 
-    function file_preview($id = "", $key = "")
-    {
+    function file_preview($id = "", $key = "") {
         if ($id) {
             validate_numeric_value($id);
             $order_info = $this->Orders_model->get_one($id);
@@ -1599,31 +1570,31 @@ class Orders extends Security_Controller
             show_404();
         }
     }
-
+    
     // Harsh's code for after checkout operations.
-    function success_page()
-    {
+    function success_page(){
         $subscription_id = $this->get_subscription($_GET['session_id'], $_GET['order_id']);
-
+        
         $invoice_labels = make_labels_view_data('label', true, true);
         $client_id = $this->login_user->client_id;
         $order = $this->Orders_model->my_recent_order($client_id)->getRow();
         // print_r($order);die;
-
+        
         $clientDueValue = get_setting("type_payment_" . $client_id);
-        $clientDueValue = !empty($clientDueValue) ? $clientDueValue : 'monthly';
-        if (!empty($clientDueValue) && ($clientDueValue == 'monthly')) {
-            $firstDateOfNextMonth = strtotime('first day of next month');
+        $clientDueValue = !empty($clientDueValue)? $clientDueValue: 'monthly';
+        if( !empty($clientDueValue) && ($clientDueValue == 'monthly') ) {
+            $firstDateOfNextMonth =strtotime('first day of next month') ;
 
             $dateType = 'Monthly';
             $dueDate = date('Y/m/d', $firstDateOfNextMonth);
-        } else if (!empty($clientDueValue) && ($clientDueValue == 'weekly')) {
-            $firstDateOfNextMonth = strtotime('next monday');
-
+        }else if( !empty($clientDueValue) && ($clientDueValue == 'weekly') ) {
+            $firstDateOfNextMonth =strtotime('next monday') ;
+            
             $dateType = 'Weekly';
             $dueDate = date('Y/m/d', $firstDateOfNextMonth);
-        }
 
+        }
+        
         $invoice_data = array(
             "client_id" => $client_id,
             "project_id" => 0, // $this->request->getPost('invoice_project_id') ? $this->request->getPost('invoice_project_id') : 0,
@@ -1638,9 +1609,9 @@ class Orders extends Security_Controller
             "repeat_every" => 0, //$repeat_every ? $repeat_every : 0,
             "repeat_type" => NULL, // $repeat_type ? $repeat_type : NULL,
             "no_of_cycles" => 0, // $no_of_cycles ? $no_of_cycles : 0,
-            "note" => '', //$this->request->getPost('invoice_note'),
+            "note" => '',//$this->request->getPost('invoice_note'),
             "labels" =>  $order->id, //$this->request->getPost('labels').
-            "status" =>  $invoice_labels, // 'not paid',
+            "status" =>  $invoice_labels ,// 'not paid',
         );
         $view_data = $invoice_data;
         $view_data['is_community_set'] = $order->is_community_set;
@@ -1662,7 +1633,7 @@ class Orders extends Security_Controller
                 "unit_type" => $data->unit_type ? $data->unit_type : "",
                 "rate" => $data->rate ? $data->rate : 0,
                 "total" => $data->total ? $data->total : 0,
-
+            
             );
 
             // echo '<pre>';
@@ -1671,39 +1642,37 @@ class Orders extends Security_Controller
             $this->Invoice_items_model->ci_save($invoice_item_data);
         }
 
-        return $this->template->rander("/orders/success_page", $view_data);
+        return $this->template->rander("/orders/success_page",$view_data);
     }
 
-    function error_page()
-    {
+    function error_page(){
         $subscription_id = $this->get_subscription($_GET['session_id']);
         return $this->template->rander("/orders/error_page");
     }
-
-    function cancel_subscription()
-    {
-        \Stripe\Stripe::setApiKey('your_stripe_secret_key');
-
-        $subscriptionID = 'sub_1234567890'; // Replace with the actual subscription ID
-
-        try {
-            // Retrieve the subscription
-            $subscription = \Stripe\Subscription::retrieve($subscriptionID);
-            $subscription->cancel();
-
-            // Optionally, you can access the canceled subscription's status
-            echo "Subscription canceled: " . $subscription->status;
-        } catch (\Stripe\Exception\ApiErrorException $e) {
-            // Handle any errors that may occur
-            echo "Error: " . $e->getMessage();
-        }
+    
+    function cancel_subscription(){
+            \Stripe\Stripe::setApiKey('your_stripe_secret_key');
+        
+            $subscriptionID = 'sub_1234567890'; // Replace with the actual subscription ID
+        
+            try {
+                // Retrieve the subscription
+                $subscription = \Stripe\Subscription::retrieve($subscriptionID);
+                $subscription->cancel();
+        
+                // Optionally, you can access the canceled subscription's status
+                echo "Subscription canceled: " . $subscription->status;
+                
+            } catch (\Stripe\Exception\ApiErrorException $e) {
+                // Handle any errors that may occur
+                echo "Error: " . $e->getMessage();
+            }
     }
 
-    function get_subscription($session_id, $order_id)
-    {
+    function get_subscription($session_id,$order_id){
         // Subscription Id fetching from stripe response 
 
-
+        
         // \Stripe\Stripe::setApiKey(getenv('STRIPE_SECRET'));
         $stripePaymentMethod = $this->Payment_methods_model->get_oneline_payment_method('stripe');
         $payment_setting = $this->Payment_methods_model->get_one_with_settings($stripePaymentMethod->id);
@@ -1715,12 +1684,14 @@ class Orders extends Security_Controller
         try {
             // Retrieve the payment session data from Stripe
             $session = \Stripe\Checkout\Session::retrieve($sessionID);
-            $this->Orders_model->save_response($session, $order_id);
+            $this->Orders_model->save_response($session,$order_id);
+            
         } catch (\Stripe\Exception\ApiErrorException $e) {
             // Handle any errors that may occur
             echo "Error: " . $e->getMessage();
         }
     }
+
 }
 
 /* End of file orders.php */

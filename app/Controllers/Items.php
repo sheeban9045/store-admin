@@ -65,6 +65,38 @@ class Items extends Security_Controller {
         return $this->template->view('items/modal_form', $view_data);
     }
 
+    function add_features() {
+        $this->access_only_team_members();
+        $this->validate_access_to_items();
+
+        $this->validate_submitted_data(array(
+            "id" => "numeric"
+        ));
+
+        $features = $this->Features_model->get_details()->getResult();
+
+        $types = $this->Features_type_model->get_all_where(array("deleted" => 0))->getResult();
+
+        usort($types, function ($a, $b) {
+            return $a->sort_order - $b->sort_order;
+        });
+
+        $grouped = [];
+        foreach ($features as $f) {
+            $grouped[$f->type][] = $f;
+        }
+
+        $view_data['feature_types'] = $types;
+        $view_data['grouped_features'] = $grouped;
+
+        $view_data['model_info'] = $this->Items_model->get_one($this->request->getPost('id'));
+
+        $selected = explode(',', $view_data['model_info']->feature_ids ?? '');
+        $view_data['selected_features'] = $selected;
+
+        return $this->template->view('items/add_features', $view_data);
+    }
+
     /* add or edit an item */
 
     function save() {
@@ -84,8 +116,12 @@ class Items extends Security_Controller {
             "category_id" => $this->request->getPost('category_id'),
             "unit_type" => $this->request->getPost('unit_type'),
             "payment_type" => $this->request->getPost('payment_type'),
+            "type" => $this->request->getPost('type'),
             "rate" => unformat_currency($this->request->getPost('item_rate')),
-            "show_in_client_portal" => $this->request->getPost('show_in_client_portal') ? $this->request->getPost('show_in_client_portal') : ""
+            "show_in_client_portal" => $this->request->getPost('show_in_client_portal') ? $this->request->getPost('show_in_client_portal') : "",
+            "order" => $this->request->getPost('order'),
+            "installation_charges" => $this->request->getPost('installation_charges'),
+            "demo_url" => $this->request->getPost('demo_url'), 
         );
 
         $target_path = get_setting("timeline_file_path");
@@ -110,6 +146,41 @@ class Items extends Security_Controller {
         }
     }
 
+    function save_features() {
+        $this->access_only_team_members();
+        $this->validate_access_to_items();
+
+        $this->validate_submitted_data(array(
+            "id" => "required|numeric"
+        ));
+
+        $item_id = $this->request->getPost('id');
+        $feature_ids = $this->request->getPost('feature_ids') ?? [];
+
+        $data = array(
+            "feature_ids" => implode(',', $feature_ids)
+        );
+
+        $save_id = $this->Items_model->ci_save($data, $item_id);
+
+        if ($save_id) {
+            $options = array("id" => $item_id);
+            $item_info = $this->Items_model->get_details($options)->getRow();
+
+            echo json_encode(array(
+                "success" => true,
+                "id" => $item_info->id,
+                "data" => $this->_make_item_row($item_info),
+                "message" => app_lang('record_saved')
+            ));
+        } else {
+            echo json_encode(array(
+                "success" => false,
+                "message" => app_lang('error_occurred')
+            ));
+        }
+    }
+
     /* delete or undo an item */
 
     function delete() {
@@ -130,12 +201,12 @@ class Items extends Security_Controller {
                 echo json_encode(array("success" => false, app_lang('error_occurred')));
             }
         } else {
-            // if ($this->Items_model->delete($id)) {
-            //     $item_info = $this->Items_model->get_one($id);
-            //     echo json_encode(array("success" => true, "id" => $item_info->id, 'message' => app_lang('record_deleted')));
-            // } else {
+            if ($this->Items_model->delete($id)) {
+                $item_info = $this->Items_model->get_one($id);
+                echo json_encode(array("success" => true, "id" => $item_info->id, 'message' => app_lang('record_deleted')));
+            } else {
                 echo json_encode(array("success" => false, 'message' => app_lang('record_cannot_be_deleted')));
-            //}
+            }
         }
     }
 
@@ -169,12 +240,16 @@ class Items extends Security_Controller {
 
         return array(
             modal_anchor(get_uri("items/view"), $show_in_client_portal_icon . $data->title, array("title" => app_lang("item_details"), "data-post-id" => $data->id)),
-            nl2br($data->description),
+            substr(strip_tags(nl2br($data->description)), 0, 100) . '...',
             $data->category_title ? $data->category_title : "-",
             $payment_type,
             $type,
+            $data->type == "onetime" ? "One Time" : "Monthly",
             to_decimal_format($data->rate),
-            modal_anchor(get_uri("items/modal_form"), "<i data-feather='edit' class='icon-16'></i>", array("class" => "edit", "title" => app_lang('edit_item'), "data-post-id" => $data->id))
+            isset($data->order) ? $data->order : 0,
+            $data->installation_charges ?? '',
+            modal_anchor(get_uri("items/add_features"), "<i data-feather='plus-circle' class='icon-16'></i>", array("class" => "plus-circle", "title" => app_lang('add_features'), "data-post-id" => $data->id))
+            . modal_anchor(get_uri("items/modal_form"), "<i data-feather='edit' class='icon-16'></i>", array("class" => "edit", "title" => app_lang('edit_item'), "data-post-id" => $data->id))
             . js_anchor("<i data-feather='x' class='icon-16'></i>", array('title' => app_lang('delete'), "class" => "delete", "data-id" => $data->id, "data-action-url" => get_uri("items/delete"), "data-action" => "delete"))
         );
     }
@@ -763,6 +838,106 @@ class Items extends Security_Controller {
         return array(
             "item_data" => $item_data
         );
+    }
+
+    function manage_service() {
+        $this->access_only_team_members();
+        $this->validate_access_to_items();
+
+        return $this->template->rander("items/manage_service");
+    }
+
+    function service_list_data() {
+        $this->access_only_team_members();
+        $this->validate_access_to_items();
+
+        $list_data = $this->Services_model->get_details()->getResult();
+        $result = array();  
+        foreach ($list_data as $data) {
+            $result[] = $this->_make_service_row($data);
+        }
+        echo json_encode(array("data" => $result));
+    }
+
+    private function _make_service_row($data) {
+        return array(
+            $data->title,
+            $data->description,
+            "$" . to_decimal_format($data->rate),
+            $data->order,
+            ($data->status == 1) ? "<span style='background-color: #0abb87' class='badge badge-success'>" . app_lang('active') . "</span>" : "<span style='background-color: #f1c40f' class='badge badge-warning'>" . app_lang('inactive') . "</span>",
+            modal_anchor(get_uri("items/service_modal_form"), "<i data-feather='edit' class='icon-16'></i>", array("class" => "edit", "title" => app_lang('edit_item'), "data-post-id" => $data->id))
+            . js_anchor("<i data-feather='x' class='icon-16'></i>", array('title' => app_lang('delete'), "class" => "delete", "data-id" => $data->id, "data-action-url" => get_uri("items/delete_service"), "data-action" => "delete"))
+        );
+    }
+
+    function service_modal_form() {
+        $this->access_only_team_members();
+        $this->validate_access_to_items();
+
+        $this->validate_submitted_data(array(
+            "id" => "numeric"
+        ));
+
+        $view_data['model_info'] = $this->Services_model->get_one($this->request->getPost('id'));
+
+        return $this->template->view('items/service_modal_form', $view_data);
+    }
+
+    function save_service() {
+        $this->access_only_team_members();
+        $this->validate_access_to_items();
+
+        $this->validate_submitted_data(array(
+            "id" => "numeric",
+        ));
+
+        $id = $this->request->getPost('id');
+
+        $service_data = array(
+            "title" => $this->request->getPost('title'),
+            "description" => $this->request->getPost('description'),
+            "rate" => unformat_currency($this->request->getPost('rate')),
+            "order" => $this->request->getPost('order'),
+            "status" => $this->request->getPost('status')           
+        );
+
+
+        $service_id = $this->Services_model->ci_save($service_data, $id);
+        if ($service_id) {
+            $options = array("id" => $service_id);
+            $service_info = $this->Services_model->get_details($options)->getRow();
+            echo json_encode(array("success" => true, "id" => $service_info->id, "data" => $this->_make_service_row($service_info), 'message' => app_lang('record_saved')));
+        } else {
+            echo json_encode(array("success" => false, 'message' => app_lang('error_occurred')));
+        }
+    }
+
+    function delete_service() {
+        $this->access_only_team_members();
+        $this->validate_access_to_items();
+
+        $this->validate_submitted_data(array(
+            "id" => "required|numeric"
+        ));
+
+        $id = $this->request->getPost('id');
+        if ($this->request->getPost('undo')) {
+            if ($this->Services_model->delete($id, true)) {
+                $options = array("id" => $id);
+                $service_info = $this->Services_model->get_details($options)->getRow();
+                echo json_encode(array("success" => true, "id" => $service_info->id, "data" => $this->_make_service_row($service_info), "message" => app_lang('record_undone')));
+            } else {
+                echo json_encode(array("success" => false, app_lang('error_occurred')));
+            }
+        } else {
+            if ($this->Services_model->delete($id)) {
+                $service_info = $this->Services_model->get_one($id);
+                echo json_encode(array("success" => true, "id" => $service_info->id, 'message' => app_lang('record_deleted')));
+            } else {
+                echo json_encode(array("success" => false, 'message' => app_lang('record_cannot_be_deleted')));
+            }
+        }
     }
 
 }

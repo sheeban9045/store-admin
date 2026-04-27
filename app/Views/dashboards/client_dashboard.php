@@ -253,12 +253,12 @@
                                         <?php if(!empty($order->is_community_set)): ?>
                                         <div style="margin-bottom: 3%;">
                                             <br><br><br>
-                                            <a href="<?php echo "http://".$order->domain_name."/index.php/login/user_email/".$user_email."/autologin/1";?>" target = "_blank" class="btn btn-primary ml-2">Community</a>
+                                            <a href="<?php echo "http://".$order->domain_name."/login/user_email/".$user_email."/autologin/1";?>" target = "_blank" class="btn btn-primary ml-2">Community</a>
                                             <!--<a href="<?php echo $baseURL."/".$order->domain_name."/login/community_success/1"?>" target = "_blank" class="btn btn-primary ml-2">Community</a>-->
 
-                                            <a href="<?php echo "http://".$order->domain_name."/index.php/admin"?>" target = "_blank" class="btn btn-primary ml-2">Admin</a>
+                                            <a href="<?php echo "http://".$order->domain_name."/admin"?>" target = "_blank" class="btn btn-primary ml-2">Admin</a>
                                             
-                                            <a href="<?php echo $baseURL."/webhut-parent-community/index.php/store/community-plugins-store/user_email/".$user_email;?>" target = "_blank" class="btn btn-primary ml-2">Manage Plugins</a>
+                                            <a href="<?php echo "http://".$order->domain_name."/webhut-parent-community/index.php/store/community-plugins-store/user_email/".$user_email;?>" target = "_blank" class="btn btn-primary ml-2">Manage Plugins</a>
                                         </div>
                                         <?php endif; ?>
                                     </div>

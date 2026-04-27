@@ -16,18 +16,18 @@
                 <span class="btn color-white"><i data-feather="camera" class="icon-16"></i></span> 
                 <input id="profile_image_file" class="upload" name="profile_image_file" type="file" data-height="200" data-width="200" data-preview-container="#profile-image-preview" data-input-field="#profile_image" />
             </div>
-            <div class="file-upload btn p0 profile-image-upload profile-image-direct-upload" data-bs-toggle="tooltip" title="<?php echo app_lang("upload"); ?> (200x200 px)" data-placement="right">
+            <!-- <div class="file-upload btn p0 profile-image-upload profile-image-direct-upload" data-bs-toggle="tooltip" title="<?php echo app_lang("upload"); ?> (200x200 px)" data-placement="right">
                 <?php
-                echo form_upload(array(
-                    "id" => "profile_image_file_upload",
-                    "name" => "profile_image_file",
-                    "class" => "no-outline hidden-input-file upload"
-                ));
+                // echo form_upload(array(
+                //     "id" => "profile_image_file_upload",
+                //     "name" => "profile_image_file",
+                //     "class" => "no-outline hidden-input-file upload"
+                // ));
                 ?>
                 <label for="profile_image_file_upload" class="clickable">
                     <span class="btn color-white ml2"><i data-feather="upload" class="icon-16"></i></span>
                 </label>
-            </div>
+            </div> -->
             <input type="hidden" id="profile_image" name="profile_image" value=""  />
         <?php } ?>
         <span class="avatar avatar-lg"><img id="profile-image-preview" src="<?php echo get_avatar($user_info->image); ?>" alt="..."></span> 
