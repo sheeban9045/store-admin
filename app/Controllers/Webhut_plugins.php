@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Controllers;
-
+require_once(FCPATH . getenv('STRIPE_PATH'));
 class Webhut_plugins extends Security_Controller {
 
     function __construct() {
@@ -218,5 +218,438 @@ class Webhut_plugins extends Security_Controller {
                 echo json_encode(array("success" => false, "message" => app_lang('record_cannot_be_deleted')));
             }
         }
+    }
+
+    public function plugin_details($id = null) {
+        if(!$id) show_404();
+        
+        $this->access_only_team_members();
+        
+        $options = array("id" => $id);
+        $view_data['plugin_data'] = $this->Webhut_plugins_model->get_details($options)->getRow();
+        if (!$view_data['plugin_data']) {
+            show_404();
+        }
+   
+        return $this->template->rander('webhut_plugins/plugin_details', $view_data);
+    }
+
+    public function checkout($id = null) {
+        if(!$id) show_404();
+
+        $this->access_only_team_members();
+       
+
+        $user_data = $this->login_user;
+
+        $my_orders =  $this->Orders_model->my_orders($user_data->id)->getResult();        
+
+        for( $i = 0; $i < count($my_orders); $i++){
+            if($my_orders[$i]->is_community_set == 1 && $my_orders[$i]->deleted == 0 && $my_orders[$i]->is_domain_created == 1){
+                $view_data['communities'][] = $my_orders[$i]->domain_name;
+            }            
+        }
+
+        $view_data['plugin_data'] = $this->Webhut_plugins_model->get_details(array("id" => $id))->getRow();
+        // echo "<pre>";print_r($view_data['communities']);echo "</pre>";die;
+
+        if (!$view_data['plugin_data']) show_404();
+
+        $stripePaymentMethod = $this->Payment_methods_model->get_oneline_payment_method('stripe');
+        $payment_setting = $this->Payment_methods_model->get_one_with_settings($stripePaymentMethod->id);
+        $view_data['payment_setting'] = $payment_setting;
+
+        return $this->template->rander("webhut_plugins/checkout", $view_data);
+    }
+
+    public function place_order(){
+
+        $post_data = $this->request->getPost();
+
+        $plugin_id = $post_data['plugin_id'] ?? null;
+        $community = $post_data['community'] ?? null;
+
+        if(!$plugin_id){
+            echo json_encode(array(
+                "success" => false,
+                "message" => "Plugin is required."
+            ));
+            return;
+        }
+
+        if(!$community){
+            echo json_encode(array(
+                "success" => false,
+                "message" => "Community is required."
+            ));
+            return;
+        }
+
+        $user_data = $this->login_user;
+        
+        $where = "domain_name = '".$community."' AND is_community_set = 1 AND deleted = 0 AND is_domain_created = 1";
+        $is_community_exist =  $this->Orders_model->get_community_by_client($user_data->id, $where)->getResult();
+        
+        if(!$is_community_exist){
+            echo json_encode(array(
+                "success" => false,
+                "message" => "Selected community does not exist."
+            ));
+            return;
+        }
+
+        $community_path = FCPATH . "../" . $community;
+
+        if (!is_dir($community_path)) {
+            echo json_encode(array(
+                "success" => false,
+                "message" => "Selected community folder does not exist on the server. Please contact admin."
+            ));
+            return;
+        }
+
+        $where = "plugin_id = $plugin_id AND user_id = $user_data->id AND community = '".$community."' AND payment_status = 'success' AND status = 'success'";
+        $purchased_plugins = $this->Webhut_orders_model->get_plugin_purchased_by_client($where)->getResult();
+
+        if(!empty($purchased_plugins)){
+            echo json_encode(array(
+                "success" => false,
+                "message" => "You have already purchased this plugin for the selected community."
+            ));
+            return;
+        }
+
+        $get_plugin_data = $this->Webhut_plugins_model->get_details(array("id" => $plugin_id))->getRow();
+
+        if(!$get_plugin_data){
+            echo json_encode(array(
+                "success" => false,
+                "message" => "Plugin not found."
+            ));
+            return;
+        }
+
+        $zip_file = $get_plugin_data->zip_file;
+
+        $source = FCPATH . "uploads/plugins/zips/" . $zip_file;
+
+        if (!$zip_file || !file_exists($source)) {
+            echo json_encode(array(
+                "success" => false,
+                "message" => "Plugin file is missing. Please contact admin."
+            ));
+            return;
+        }
+
+        $discount_type = $get_plugin_data->discount_type;
+        $discount_value = $get_plugin_data->discount_value;
+        
+        $amount = $get_plugin_data->rate;
+
+        if($discount_type === 'percentage'){
+            $total_amount = $amount * (1 - $discount_value / 100);
+        }else{
+            $total_amount = $amount - $discount_value;
+        }
+
+        $order_data = [
+            "user_id" => $user_data->id,
+            "community" => $community,
+            "plugin_id" => $plugin_id,
+            "total_amount" => $total_amount,
+            "payment_gateway" => "stripe",
+        ];
+
+        $order_id = $this->Webhut_orders_model->ci_save($order_data);
+
+        $stripePaymentMethod = $this->Payment_methods_model->get_oneline_payment_method('stripe');
+        $payment_setting = $this->Payment_methods_model->get_one_with_settings($stripePaymentMethod->id);
+        
+        \Stripe\Stripe::setApiKey($payment_setting->secret_key);
+
+        $amount_in_paise = (int) round($total_amount * 100);
+
+        $successURL = getenv('STRIPE_REDIRECT_URL') . '/store-admin/index.php/Webhut_plugins/success?order_id=' . $order_id . '&session_id={CHECKOUT_SESSION_ID}';
+
+        $cancelURL = getenv('STRIPE_REDIRECT_URL') . '/store-admin/index.php/Webhut_plugins/cancel?order_id=' . $order_id . '&session_id={CHECKOUT_SESSION_ID}';
+
+        $session = \Stripe\Checkout\Session::create([
+            'payment_method_types' => ['card'],
+            'line_items' => [[
+                'price_data' => [
+                    'currency' => 'inr',
+                    'product_data' => [
+                        'name' => $get_plugin_data->name,
+                    ],
+                    'unit_amount' => $amount_in_paise,
+                ],
+                'quantity' => 1,
+            ]],
+            'mode' => 'payment',
+            'success_url' => $successURL,
+            'cancel_url' => $cancelURL,
+            'metadata' => [
+                'order_id' => $order_id,
+                'user_id' => $user_data->id
+            ]
+        ]);
+
+        echo json_encode(array(
+            "success" => true,
+            "message" => "Order placed successfully.",
+            "session_id" => $session->id
+        )); 
+    }
+
+    public function success()
+    {
+        $order_id = $this->request->getGet('order_id');
+        $session_id = $this->request->getGet('session_id');
+
+        $stripePaymentMethod = $this->Payment_methods_model->get_oneline_payment_method('stripe');
+        $payment_setting = $this->Payment_methods_model->get_one_with_settings($stripePaymentMethod->id);
+        
+        \Stripe\Stripe::setApiKey($payment_setting->secret_key);
+
+        $session = \Stripe\Checkout\Session::retrieve($session_id);
+
+        if (isset($session) && $session->payment_status == 'paid') {
+            $order_data = [
+                "payment_status"   => "success",
+                "transaction_id"   => $session->payment_intent,
+                "status"           => "success",
+                "payment_response" => json_encode($session),
+            ];
+
+            $this->Webhut_orders_model->ci_save($order_data, $order_id);
+
+            $order = $this->Webhut_orders_model
+                ->get_details(["id" => $order_id])
+                ->getRow();
+
+            if (!$order) {
+                log_message('error', 'Order not found: ' . $order_id);
+                $order_data = [
+                    "status" => "failed",
+                ];
+
+                $this->Webhut_orders_model->ci_save($order_data, $order_id);
+                $view_data['message'] = "Order not found.";
+                return $this->template->rander("webhut_plugins/success", $view_data); 
+            }
+
+            $plugin = $this->Webhut_plugins_model
+                ->get_details(["id" => $order->plugin_id])
+                ->getRow();
+
+            if (!$plugin) {
+                log_message('error', 'Plugin not found: ' . $order->plugin_id);
+                $order_data = [
+                    "status" => "failed",
+                ];
+
+                $this->Webhut_orders_model->ci_save($order_data, $order_id);
+                $view_data['message'] = "Plugin not found.";
+                return $this->template->rander("webhut_plugins/success", $view_data); 
+            }
+
+            $community = basename($order->community);
+
+            $copied = $this->copy_plugin_zip($plugin->zip_file, $community);
+
+            if ($copied) {
+                $user_data = $this->login_user;
+                $email = $user_data->email;
+
+                $subject = "Plugin Purchase Successful - Webhut";
+                $user_name = $user_data->first_name . ' ' . $user_data->last_name;
+                $message = "
+                    <h1>Hi, {$user_name}</h1>
+                    <h2>Payment Successful 🎉</h2>
+
+                    <p>Hi,</p>
+
+                    <p>Your payment has been successfully completed.</p>
+
+                    <p><strong>Order ID:</strong> #{$order_id}</p>
+                    <p><strong>Plugin:</strong> {$plugin->name}</p>
+                    <p><strong>Community:</strong> {$community}</p>
+
+                    <p>The plugin has been successfully added to your account and is now ready for installation.</p>
+
+                    <p>You can install and manage your plugin from your dashboard.</p>
+
+                    <br>
+
+                    <p><a href='" . base_url('Webhut_plugins/history') . "' 
+                    style='padding:10px 15px; background:#28a745; color:#fff; text-decoration:none; border-radius:5px;'>
+                    View Purchase History
+                    </a></p>
+
+                    <br>
+
+                    <p>Thank you for choosing Webhut!</p>
+
+                    <p>Best Regards,<br>
+                    Webhut Team</p>
+                    ";
+
+                send_app_mail($email, $subject, $message);
+                $view_data['message'] = "Payment successful. Plugin ready for installation.";
+            } else {
+                $order_data = [
+                    "status" => "failed",
+                ];
+
+                $this->Webhut_orders_model->ci_save($order_data, $order_id);
+                $view_data['message'] = "Payment successful, but plugin file copy failed.";
+            }
+        }else{
+            $order_data = [
+                "payment_status" => "failed",
+                "transaction_id" => isset($session->payment_intent) ? $session->payment_intent : null,
+                "status" => "failed",
+                "payment_response" => json_encode($session),
+            ];
+
+            $this->Webhut_orders_model->ci_save($order_data, $order_id);
+
+            $view_data['message'] = "Payment failed or cancelled. Please try again.";
+        }       
+
+        return $this->template->rander("webhut_plugins/success", $view_data);
+    }
+
+    private function copy_plugin_zip($zip_file, $community)
+    {
+        $source = FCPATH . "uploads/plugins/zips/" . $zip_file;
+        $destination_dir = FCPATH . "../" . $community . "/uploads/plugins/zips/";
+        $destination = $destination_dir . $zip_file;
+
+        // 🔹 Check source file
+        if (!file_exists($source)) {
+            log_message('error', 'Source zip not found: ' . $source);
+            return false;
+        }
+
+        // 🔹 Create destination folder if not exists
+        if (!is_dir($destination_dir)) {
+            if (!mkdir($destination_dir, 0777, true)) {
+                log_message('error', 'Failed to create directory: ' . $destination_dir);
+                return false;
+            }
+        }
+
+        // 🔹 Copy file
+        if (!copy($source, $destination)) {
+            log_message('error', 'Failed to copy zip file to: ' . $destination);
+            return false;
+        }
+
+        log_message('info', 'Plugin zip copied successfully to: ' . $destination);
+
+        return true;
+    }
+
+    public function cancel()
+    {
+        $order_id = $this->request->getGet('order_id');
+        $session_id = $this->request->getGet('session_id');
+
+        $stripePaymentMethod = $this->Payment_methods_model->get_oneline_payment_method('stripe');
+        $payment_setting = $this->Payment_methods_model->get_one_with_settings($stripePaymentMethod->id);
+        
+        \Stripe\Stripe::setApiKey($payment_setting->secret_key);
+
+        $session = \Stripe\Checkout\Session::retrieve($session_id);
+
+
+        if (isset($session) && $session->payment_status == 'unpaid') {
+            $order_data = [
+                "payment_status" => "failed",
+                "transaction_id" => isset($session->payment_intent) ? $session->payment_intent : null,
+                "status" => "cancelled",
+                "payment_response" => json_encode($session),
+            ];
+
+            $this->Webhut_orders_model->ci_save($order_data, $order_id);
+
+            $view_data['message'] = "Order cancelled.";
+        }else{
+            $order_data = [
+                "payment_status" => "failed",
+                "transaction_id" => isset($session->payment_intent) ? $session->payment_intent : null,
+                "status" => "failed",
+                "payment_response" => json_encode($session),
+            ];
+
+            $this->Webhut_orders_model->ci_save($order_data, $order_id);
+
+            $view_data['message'] = "Payment failed or cancelled. Please try again.";
+        }
+
+        return $this->template->rander("webhut_plugins/cancel", $view_data);
+    }
+
+    public function history() {
+        $user_data = $this->login_user;
+
+        $orders = $this->Webhut_orders_model->get_orders_by_user($user_data->id)->getResult();
+
+        $view_data['orders'] = $orders;
+
+        return $this->template->rander("webhut_plugins/history", $view_data);
+    }
+
+    public function history_data() {
+        $user_id = $this->login_user->id;
+
+        $list_data = $this->Webhut_orders_model
+            ->get_orders_by_user($user_id)
+            ->getResult();
+
+        $result = array();
+        foreach ($list_data as $data) {
+            $result[] = $this->_make_history_row($data);
+        }
+
+        echo json_encode(array("data" => $result));
+    }
+
+    private function _make_history_row($data) {
+        $icon = "";
+        if (isset($data->plugin_icon) && $data->plugin_icon) {
+            $icon = "<img src='" . base_url("uploads/plugins/icons/" . $data->plugin_icon) . "' style='width:40px;height:40px;object-fit:cover;border-radius:6px;' />";
+        }
+
+        $plugin_name = $data->plugin_name ? $data->plugin_name : "-";
+
+        $community = $data->community ? $data->community : "-";
+
+        $amount = number_format($data->total_amount, 2);
+
+        $payment_status = $data->payment_status == "success"
+            ? "<span class='badge bg-success'>" . app_lang('success') . "</span>"
+            : "<span class='badge bg-danger'>" . app_lang('failed') . "</span>";
+
+        if ($data->status == "success") {
+            $status = "<span class='badge bg-success'>" . app_lang('completed') . "</span>";
+        } elseif ($data->status == "cancelled") {
+            $status = "<span class='badge bg-warning'>" . app_lang('cancelled') . "</span>";
+        } else {
+            $status = "<span class='badge bg-danger'>" . app_lang('failed') . "</span>";
+        }
+
+        $date = date("d M Y", strtotime($data->created_at));
+
+        return array(
+            $icon,
+            $plugin_name,
+            $community,
+            $amount,
+            $payment_status,
+            $status,
+            $date
+        );
     }
 }

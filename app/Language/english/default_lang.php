@@ -2243,6 +2243,20 @@ $lang["discount_value"] = "Discount Value";
 $lang["zip_file"] = "Zip File";
 $lang["photos"] = "Photos";
 $lang["fixed"] = "Fixed";
+$lang["select_community"] = "Select Community";
+$lang["select"] = "Select";
+$lang['purchase_history'] = "Purchase History";
+$lang['plugin'] = "Plugin";
+$lang['community'] = "Community";
+$lang['amount'] = "Amount";
+$lang['payment_status'] = "Payment Status";
+$lang['status'] = "Status";
+$lang['date'] = "Date";
+$lang['success'] = "Success";
+$lang['failed'] = "Failed";
+$lang['completed'] = "Completed";
+$lang['cancelled'] = "Cancelled";
+
 
 
 
