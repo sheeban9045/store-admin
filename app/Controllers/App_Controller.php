@@ -121,6 +121,7 @@ class App_Controller extends Controller {
             'Features_type_model',
             'Services_model',
             'Webhut_plugins_model',
+            'Webhut_orders_model',
         );
     }
 

@@ -319,6 +319,14 @@ class Orders_model extends Crud_model {
         return $this->db->query($sql);
     }
 
+    function get_community_by_client($client_id, $where = "1"){
+        $orders_table = $this->db->prefixTable('orders');
+
+        $sql = "SELECT * FROM  $orders_table  WHERE client_id = ".$client_id." AND ".$where." ORDER BY id DESC";
+        
+        return $this->db->query($sql);
+    }
+
     function get_plan_detail( $order_id){
         $order_items_table = $this->db->prefixTable('order_items');
         $sql = "SELECT * FROM  $order_items_table  WHERE id = (SELECT MIN(id) FROM $order_items_table WHERE order_id=".$order_id.")";
