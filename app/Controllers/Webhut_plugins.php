@@ -222,9 +222,7 @@ class Webhut_plugins extends Security_Controller {
 
     public function plugin_details($id = null) {
         if(!$id) show_404();
-        
-        $this->access_only_team_members();
-        
+                
         $options = array("id" => $id);
         $view_data['plugin_data'] = $this->Webhut_plugins_model->get_details($options)->getRow();
         if (!$view_data['plugin_data']) {
@@ -235,10 +233,7 @@ class Webhut_plugins extends Security_Controller {
     }
 
     public function checkout($id = null) {
-        if(!$id) show_404();
-
-        $this->access_only_team_members();
-       
+        if(!$id) show_404();       
 
         $user_data = $this->login_user;
 
