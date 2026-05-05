@@ -2256,6 +2256,7 @@ $lang['success'] = "Success";
 $lang['failed'] = "Failed";
 $lang['completed'] = "Completed";
 $lang['cancelled'] = "Cancelled";
+$lang['enter_code__placeholder'] = "Enter code, Ex. album-plugin";
 
 
 
