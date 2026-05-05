@@ -32,13 +32,19 @@
         <!-- Code -->
         <div class="form-group">
             <div class="row">
-                <label class="col-md-3"><?php echo app_lang('code'); ?></label>
+                <label class="col-md-3">
+                    <?php echo app_lang('code'); ?>
+                    <button type="button" class="btn btn-secondary" data-toggle="tooltip" data-html="true"
+                         title="Enter a unique code for the plugin (only letters, numbers, underscore or dash). This will be used to identify the plugin internally.">
+                        <span data-feather="info" class="icon-14"></span>
+                    </button>
+                </label>
                 <div class="col-md-9">
                     <?php echo form_input(array(
                         "name"             => "code",
                         "value"            => $model_info->code ?? '',
                         "class"            => "form-control",
-                        "placeholder"      => app_lang('code'),
+                        "placeholder"      => app_lang('enter_code__placeholder'),
                         "data-rule-required" => true,
                         "data-msg-required"  => app_lang('field_required'),
                     )); ?>
@@ -83,16 +89,26 @@
         <div class="form-group">
             <div class="row">
                 <label class="col-md-3"><?php echo app_lang('rate'); ?></label>
+
                 <div class="col-md-9">
-                    <?php echo form_input(array(
-                        "name"             => "rate",
-                        "type"             => "number",
-                        "value"            => $model_info->rate ?? '',
-                        "class"            => "form-control",
-                        "placeholder"      => "0.00",
-                        "data-rule-required" => true,
-                        "data-msg-required"  => app_lang('field_required'),
-                    )); ?>
+                    <div class="input-group">
+                        
+                        <!-- Left $ -->
+                        <span class="input-group-text">$</span>
+
+                        <!-- Input -->
+                        <?php echo form_input(array(
+                            "name" => "rate",
+                            "type" => "number",
+                            "step" => "1",
+                            "value" => $model_info->rate ?? '',
+                            "class" => "form-control",
+                            "placeholder" => "0.00",
+                            "data-rule-required" => true,
+                            "data-msg-required" => app_lang('field_required'),
+                        )); ?>
+
+                    </div>
                 </div>
             </div>
         </div>
