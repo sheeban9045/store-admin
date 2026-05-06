@@ -23,8 +23,10 @@ class Security_Controller extends App_Controller {
 
             if (!$uri_string || $uri_string === "signin" || $uri_string === "/") {
                 app_redirect('signin');
-            } else {
-                app_redirect('signin?redirect=' . get_uri($uri_string));
+                } else {
+                // app_redirect('signin?redirect=' . get_uri($uri_string));
+                session()->set('redirect_url', get_uri($uri_string));
+                app_redirect('signin');
             }
         }
 
