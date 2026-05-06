@@ -8,6 +8,9 @@
             <input type="hidden" name="plugin_id" value="<?php echo $plugin_data->id ?? ''; ?>" />
             <div class="page-title clearfix">
                 <h1> <?php echo app_lang('process_order'); ?></h1>
+                <div class="title-button-group">
+                    <a href="https://webhut.net/list-plugins.php" class="btn btn-default"> <i data-feather="arrow-left" class="icon-16"></i> <?php echo app_lang('browse_plugins'); ?> </a>
+                </div>
             </div>
             <div class="p20">
                 <div class="mb20 ml15 mr15"><?php echo app_lang("process_order_info_message"); ?></div>
@@ -59,11 +62,14 @@
                                             <label><?php echo app_lang('select_community'); ?></label>
                                             <?php
                                             $community_options = ['' => app_lang('select')];
-
+                                         
+                                            $message = null;
                                             if (!empty($communities)) {
                                                 foreach ($communities as $community) {
                                                     $community_options[$community] = $community;
                                                 }
+                                            }else{
+                                                $message = "You don’t have any subscription yet. Please purchase a subscription to access this feature.";
                                             }
                     
                                             echo form_dropdown(
@@ -73,6 +79,12 @@
                                                 "class='select2 form-control' id='community'"
                                             );
                                             ?>
+
+                                            <?php if($message): ?>
+                                                <div class="alert alert-info mt15">
+                                                    <?php echo $message; ?>
+                                                </div>
+                                            <?php endif; ?>
                                         </div>
                                     </div>
 

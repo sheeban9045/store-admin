@@ -18,9 +18,6 @@ class Signin extends App_Controller {
         } else {
 
             $view_data["redirect"] = "";
-            if (isset($_REQUEST["redirect"])) {
-                $view_data["redirect"] = $_REQUEST["redirect"];
-            }
 
             return $this->template->view('signin/index', $view_data);
         }
@@ -97,8 +94,10 @@ class Signin extends App_Controller {
         }
 
         //authentication success
-        $redirect = $this->request->getPost("redirect");
+        // $redirect = $this->request->getPost("redirect");
+        $redirect = session()->get('redirect_url');
         if ($redirect) {
+            session()->remove('redirect_url');
             return redirect()->to($redirect);
         } else {
             app_redirect('dashboard/view');
