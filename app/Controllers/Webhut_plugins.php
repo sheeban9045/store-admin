@@ -460,9 +460,6 @@ class Webhut_plugins extends Security_Controller {
                 $user_name = $user_data->first_name . ' ' . $user_data->last_name;
                 $message = "
                     <h1>Hi, {$user_name}</h1>
-                    <h2>Payment Successful 🎉</h2>
-
-                    <p>Hi,</p>
 
                     <p>Your payment has been successfully completed.</p>
 
@@ -489,7 +486,7 @@ class Webhut_plugins extends Security_Controller {
                     Webhut Team</p>
                     ";
 
-                send_app_mail($email, $subject, $message);
+                // send_app_mail($email, $subject, $message);
                 $view_data['message'] = "Payment successful. Plugin ready for installation.";
             } else {
                 $order_data = [
