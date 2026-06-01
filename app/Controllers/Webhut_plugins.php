@@ -48,6 +48,7 @@ class Webhut_plugins extends Security_Controller {
             $data->version,
             $data->rate,
             $discount,
+            ucfirst($data->label),
             $status,
             modal_anchor(get_uri("webhut_plugins/modal_form"), "<i data-feather='edit' class='icon-16'></i>", array(
                 "class" => "edit",
@@ -159,6 +160,7 @@ class Webhut_plugins extends Security_Controller {
             "status"         => $this->request->getPost('status') ?? "inactive",
             "rate"           => $this->request->getPost('rate'),
             "version"        => $version,
+            "label"          => $this->request->getPost('label'),
             "zip_file"       => $zip_file,
             "icon"           => $icon,
             "photos"         => json_encode($photos),
