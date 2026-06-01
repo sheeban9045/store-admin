@@ -29,6 +29,7 @@
                 {title: "<?php echo app_lang('version') ?>"},
                 {title: "<?php echo app_lang('rate') ?>"},
                 {title: "<?php echo app_lang('discount') ?>"},
+                {title: "<?php echo app_lang('label') ?>"},
                 {title: "<?php echo app_lang('status') ?>", "class": "text-center"},
                 {title: "<i data-feather='menu' class='icon-16'></i>", "class": "text-center option w100"}
             ],

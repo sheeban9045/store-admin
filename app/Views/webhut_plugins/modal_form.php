@@ -155,6 +155,19 @@
             </div>
         </div>
 
+        <!-- Label -->
+        <div class="form-group">
+            <div class="row">
+                <label class="col-md-3"><?php echo app_lang('label'); ?></label>
+                <div class="col-md-9">
+                    <?php echo form_dropdown("label", array(
+                        "released" => app_lang('released'),
+                        "upcoming" => app_lang('upcoming'),
+                    ), $model_info->label ?? "released", "class='select2 form-control' id='label'"); ?>
+                </div>
+            </div>
+        </div>
+
         <!-- ZIP File -->
         <div class="form-group">
             <div class="row">
