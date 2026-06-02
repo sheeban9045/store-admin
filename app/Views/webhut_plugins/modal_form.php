@@ -85,6 +85,41 @@
             </div>
         </div>
 
+        <!-- Plugin Tags -->
+        <div class="form-group">
+            <div class="row">
+                <label class="col-md-3"><?php echo app_lang('plugin_tags'); ?></label>
+
+                <div class="col-md-9">
+
+                    <div style="display:flex; gap:25px; flex-wrap:wrap; padding-top:8px;">
+
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:500;">
+                            <input 
+                                type="checkbox" 
+                                name="is_featured" 
+                                value="1"
+                                <?php echo (!empty($model_info->is_featured) && $model_info->is_featured == 1) ? 'checked' : ''; ?>
+                            >
+                            <?php echo app_lang('featured'); ?>
+                        </label>
+
+                        <label style="display:flex; align-items:center; gap:8px; cursor:pointer; font-weight:500;">
+                            <input 
+                                type="checkbox" 
+                                name="is_best_sale" 
+                                value="1"
+                                <?php echo (!empty($model_info->is_best_sale) && $model_info->is_best_sale == 1) ? 'checked' : ''; ?>
+                            >
+                            <?php echo app_lang('best_sale'); ?>
+                        </label>
+
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
         <!-- Rate -->
         <div class="form-group">
             <div class="row">
@@ -100,7 +135,7 @@
                         <?php echo form_input(array(
                             "name" => "rate",
                             "type" => "number",
-                            "step" => "1",
+                            "step" => "0.01",
                             "value" => $model_info->rate ?? '',
                             "class" => "form-control",
                             "placeholder" => "0.00",

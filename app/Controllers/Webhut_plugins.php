@@ -161,6 +161,8 @@ class Webhut_plugins extends Security_Controller {
             "rate"           => $this->request->getPost('rate'),
             "version"        => $version,
             "label"          => $this->request->getPost('label'),
+            "is_best_sale"   => $this->request->getPost('is_best_sale') ? 1 : 0,
+            "is_featured"    => $this->request->getPost('is_featured') ? 1 : 0,
             "zip_file"       => $zip_file,
             "icon"           => $icon,
             "photos"         => json_encode($photos),
