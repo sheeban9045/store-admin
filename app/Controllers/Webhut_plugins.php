@@ -237,22 +237,39 @@ class Webhut_plugins extends Security_Controller {
     }
 
     public function checkout($id = null) {
-        if(!$id) show_404();       
-
         $user_data = $this->login_user;
 
-        $my_orders =  $this->Orders_model->my_orders($user_data->id)->getResult();        
+        $communities = [];
+        $my_orders = $this->Orders_model->my_orders($user_data->id)->getResult();
+        foreach ($my_orders as $order) {
+            if ($order->is_community_set == 1 && $order->deleted == 0 && $order->is_domain_created == 1) {
+                $communities[] = $order->domain_name;
+            }
+        }
+        $view_data['communities'] = $communities;
 
-        for( $i = 0; $i < count($my_orders); $i++){
-            if($my_orders[$i]->is_community_set == 1 && $my_orders[$i]->deleted == 0 && $my_orders[$i]->is_domain_created == 1){
-                $view_data['communities'][] = $my_orders[$i]->domain_name;
-            }            
+        $plugins = [];
+
+        if ($id) {
+            $plugin = $this->Webhut_plugins_model->get_details(["id" => $id])->getRow();
+            if (!$plugin) show_404();
+            $plugins[] = $plugin;
         }
 
-        $view_data['plugin_data'] = $this->Webhut_plugins_model->get_details(array("id" => $id))->getRow();
-        // echo "<pre>";print_r($view_data['communities']);echo "</pre>";die;
+        if (!empty($_SESSION['cart'])) {
+            foreach ($_SESSION['cart'] as $cart_item) {
+                if ($id && $cart_item['id'] == $id) continue;
 
-        if (!$view_data['plugin_data']) show_404();
+                $plugin = $this->Webhut_plugins_model->get_details(["id" => $cart_item['id']])->getRow();
+                if ($plugin) {
+                    $plugins[] = $plugin;
+                }
+            }
+        }
+
+        if (empty($plugins)) show_404();
+
+        $view_data['plugins'] = $plugins;
 
         $stripePaymentMethod = $this->Payment_methods_model->get_oneline_payment_method('stripe');
         $payment_setting = $this->Payment_methods_model->get_one_with_settings($stripePaymentMethod->id);
@@ -261,257 +278,213 @@ class Webhut_plugins extends Security_Controller {
         return $this->template->rander("webhut_plugins/checkout", $view_data);
     }
 
-    public function place_order(){
-
+    public function place_order() {
         $post_data = $this->request->getPost();
 
-        $plugin_id = $post_data['plugin_id'] ?? null;
-        $community = $post_data['community'] ?? null;
+        $plugin_ids  = $post_data['plugin_ids'] ?? [];
+        $communities = $post_data['community'] ?? [];
 
-        if(!$plugin_id){
-            echo json_encode(array(
-                "success" => false,
-                "message" => "Plugin is required."
-            ));
-            return;
-        }
-
-        if(!$community){
-            echo json_encode(array(
-                "success" => false,
-                "message" => "Community is required."
-            ));
+        if (empty($plugin_ids)) {
+            echo json_encode(["success" => false, "message" => "No plugins selected."]);
             return;
         }
 
         $user_data = $this->login_user;
-        
-        $where = "domain_name = '".$community."' AND is_community_set = 1 AND deleted = 0 AND is_domain_created = 1";
-        $is_community_exist =  $this->Orders_model->get_community_by_client($user_data->id, $where)->getResult();
-        
-        if(!$is_community_exist){
-            echo json_encode(array(
+        $line_items = [];
+        $order_ids  = [];
+        $errors     = [];
+
+        foreach ($plugin_ids as $plugin_id) {
+            $community = $communities[$plugin_id] ?? null;
+
+            // Community check
+            if (!$community) {
+                $errors[] = "Community not selected for plugin ID: $plugin_id";
+                continue;
+            }
+
+            $where = "domain_name = '$community' AND is_community_set = 1 AND deleted = 0 AND is_domain_created = 1";
+            $is_community_exist = $this->Orders_model->get_community_by_client($user_data->id, $where)->getResult();
+            if (!$is_community_exist) {
+                $errors[] = "Community '$community' does not exist.";
+                continue;
+            }
+
+            $community_path = FCPATH . "../" . $community;
+            if (!is_dir($community_path)) {
+                $errors[] = "Community folder for '$community' not found on server.";
+                continue;
+            }
+
+            // Already purchased?
+            $where = "plugin_id = $plugin_id AND user_id = $user_data->id AND community = '$community' AND payment_status = 'success' AND status = 'success'";
+            $purchased = $this->Webhut_orders_model->get_plugin_purchased_by_client($where)->getResult();
+            if (!empty($purchased)) {
+                $errors[] = "Plugin ID $plugin_id already purchased for '$community'.";
+                continue;
+            }
+
+            // Plugin data
+            $plugin = $this->Webhut_plugins_model->get_details(["id" => $plugin_id])->getRow();
+            if (!$plugin) {
+                $errors[] = "Plugin ID $plugin_id not found.";
+                continue;
+            }
+
+            // Zip file exist?
+            $source = FCPATH . "uploads/plugins/zips/" . $plugin->zip_file;
+            if (!$plugin->zip_file || !file_exists($source)) {
+                $errors[] = "Plugin file missing for '{$plugin->name}'.";
+                continue;
+            }
+
+            // Price calculate
+            $amount = floatval($plugin->rate);
+            if ($plugin->discount_type === 'percentage') {
+                $final_price = $amount * (1 - floatval($plugin->discount_value) / 100);
+            } else {
+                $final_price = $amount - floatval($plugin->discount_value);
+            }
+
+            $order_data = [
+                "user_id"          => $user_data->id,
+                "community"        => $community,
+                "plugin_id"        => $plugin_id,
+                "total_amount"     => $final_price,
+                "payment_gateway"  => "stripe",
+                "payment_status"   => "pending",
+                "status"           => "pending",
+            ];
+            $order_id = $this->Webhut_orders_model->ci_save($order_data);
+            $order_ids[] = $order_id;
+
+            $line_items[] = [
+                'price_data' => [
+                    'currency'     => 'inr',
+                    'product_data' => ['name' => $plugin->name . ' (' . $community . ')'],
+                    'unit_amount'  => (int) round($final_price * 100),
+                ],
+                'quantity' => 1,
+            ];
+        }
+
+        if (empty($line_items)) {
+            echo json_encode([
                 "success" => false,
-                "message" => "Selected community does not exist."
-            ));
+                "message" => implode(" | ", $errors)
+            ]);
             return;
         }
-
-        $community_path = FCPATH . "../" . $community;
-
-        if (!is_dir($community_path)) {
-            echo json_encode(array(
-                "success" => false,
-                "message" => "Selected community folder does not exist on the server. Please contact admin."
-            ));
-            return;
-        }
-
-        $where = "plugin_id = $plugin_id AND user_id = $user_data->id AND community = '".$community."' AND payment_status = 'success' AND status = 'success'";
-        $purchased_plugins = $this->Webhut_orders_model->get_plugin_purchased_by_client($where)->getResult();
-
-        if(!empty($purchased_plugins)){
-            echo json_encode(array(
-                "success" => false,
-                "message" => "You have already purchased this plugin for the selected community."
-            ));
-            return;
-        }
-
-        $get_plugin_data = $this->Webhut_plugins_model->get_details(array("id" => $plugin_id))->getRow();
-
-        if(!$get_plugin_data){
-            echo json_encode(array(
-                "success" => false,
-                "message" => "Plugin not found."
-            ));
-            return;
-        }
-
-        $zip_file = $get_plugin_data->zip_file;
-
-        $source = FCPATH . "uploads/plugins/zips/" . $zip_file;
-
-        if (!$zip_file || !file_exists($source)) {
-            echo json_encode(array(
-                "success" => false,
-                "message" => "Plugin file is missing. Please contact admin."
-            ));
-            return;
-        }
-
-        $discount_type = $get_plugin_data->discount_type;
-        $discount_value = $get_plugin_data->discount_value;
-        
-        $amount = $get_plugin_data->rate;
-
-        if($discount_type === 'percentage'){
-            $total_amount = $amount * (1 - $discount_value / 100);
-        }else{
-            $total_amount = $amount - $discount_value;
-        }
-
-        $order_data = [
-            "user_id" => $user_data->id,
-            "community" => $community,
-            "plugin_id" => $plugin_id,
-            "total_amount" => $total_amount,
-            "payment_gateway" => "stripe",
-        ];
-
-        $order_id = $this->Webhut_orders_model->ci_save($order_data);
 
         $stripePaymentMethod = $this->Payment_methods_model->get_oneline_payment_method('stripe');
-        $payment_setting = $this->Payment_methods_model->get_one_with_settings($stripePaymentMethod->id);
-        
+        $payment_setting     = $this->Payment_methods_model->get_one_with_settings($stripePaymentMethod->id);
         \Stripe\Stripe::setApiKey($payment_setting->secret_key);
 
-        $amount_in_paise = (int) round($total_amount * 100);
+        $order_ids_str = implode(',', $order_ids);
 
-        $successURL = getenv('STRIPE_REDIRECT_URL') . '/store-admin/index.php/Webhut_plugins/success?order_id=' . $order_id . '&session_id={CHECKOUT_SESSION_ID}';
-
-        $cancelURL = getenv('STRIPE_REDIRECT_URL') . '/store-admin/index.php/Webhut_plugins/cancel?order_id=' . $order_id . '&session_id={CHECKOUT_SESSION_ID}';
+        $successURL = getenv('STRIPE_REDIRECT_URL') . '/store-admin/index.php/Webhut_plugins/success?order_ids=' . $order_ids_str . '&session_id={CHECKOUT_SESSION_ID}';
+        $cancelURL  = getenv('STRIPE_REDIRECT_URL') . '/store-admin/index.php/Webhut_plugins/cancel?order_ids=' . $order_ids_str . '&session_id={CHECKOUT_SESSION_ID}';
 
         $session = \Stripe\Checkout\Session::create([
             'payment_method_types' => ['card'],
-            'line_items' => [[
-                'price_data' => [
-                    'currency' => 'inr',
-                    'product_data' => [
-                        'name' => $get_plugin_data->name,
-                    ],
-                    'unit_amount' => $amount_in_paise,
-                ],
-                'quantity' => 1,
-            ]],
-            'mode' => 'payment',
-            'success_url' => $successURL,
-            'cancel_url' => $cancelURL,
-            'metadata' => [
-                'order_id' => $order_id,
-                'user_id' => $user_data->id
+            'line_items'           => $line_items,
+            'mode'                 => 'payment',
+            'success_url'          => $successURL,
+            'cancel_url'           => $cancelURL,
+            'metadata'             => [
+                'order_ids' => $order_ids_str,
+                'user_id'   => $user_data->id,
             ]
         ]);
 
-        echo json_encode(array(
-            "success" => true,
-            "message" => "Order placed successfully.",
-            "session_id" => $session->id
-        )); 
+        echo json_encode([
+            "success"    => true,
+            "message"    => "Order placed successfully.",
+            "session_id" => $session->id,
+            "warnings"   => $errors
+        ]);
     }
 
-    public function success()
-    {
-        $order_id = $this->request->getGet('order_id');
-        $session_id = $this->request->getGet('session_id');
+    public function success() {
+        $order_ids_str = $this->request->getGet('order_ids');
+        $session_id    = $this->request->getGet('session_id');
+
+        $order_ids = explode(',', $order_ids_str);
 
         $stripePaymentMethod = $this->Payment_methods_model->get_oneline_payment_method('stripe');
-        $payment_setting = $this->Payment_methods_model->get_one_with_settings($stripePaymentMethod->id);
-        
+        $payment_setting     = $this->Payment_methods_model->get_one_with_settings($stripePaymentMethod->id);
         \Stripe\Stripe::setApiKey($payment_setting->secret_key);
 
         $session = \Stripe\Checkout\Session::retrieve($session_id);
 
         if (isset($session) && $session->payment_status == 'paid') {
-            $order_data = [
-                "payment_status"   => "success",
-                "transaction_id"   => $session->payment_intent,
-                "status"           => "success",
-                "payment_response" => json_encode($session),
-            ];
 
-            $this->Webhut_orders_model->ci_save($order_data, $order_id);
+            $user_data    = $this->login_user;
+            $copied_count = 0;
 
-            $order = $this->Webhut_orders_model
-                ->get_details(["id" => $order_id])
-                ->getRow();
+            foreach ($order_ids as $order_id) {
+                $order_id = intval($order_id);
 
-            if (!$order) {
-                log_message('error', 'Order not found: ' . $order_id);
-                $order_data = [
-                    "status" => "failed",
+                $data = [
+                    "payment_status"   => "success",
+                    "transaction_id"   => $session->payment_intent,
+                    "status"           => "success",
+                    "payment_response" => json_encode($session),
                 ];
 
-                $this->Webhut_orders_model->ci_save($order_data, $order_id);
-                $view_data['message'] = "Order not found.";
-                return $this->template->rander("webhut_plugins/success", $view_data); 
+                $this->Webhut_orders_model->ci_save($data, $order_id);
+
+                $order = $this->Webhut_orders_model->get_details(["id" => $order_id])->getRow();
+                if (!$order) continue;
+
+                $plugin = $this->Webhut_plugins_model->get_details(["id" => $order->plugin_id])->getRow();
+                if (!$plugin) continue;
+
+                $community = basename($order->community);
+                $copied    = $this->copy_plugin_zip($plugin->zip_file, $community);
+
+                if ($copied) {
+                    $copied_count++;
+                } else {
+                    $this->Webhut_orders_model->ci_save(["status" => "failed"], $order_id);
+                }
             }
 
-            $plugin = $this->Webhut_plugins_model
-                ->get_details(["id" => $order->plugin_id])
-                ->getRow();
+            $_SESSION['cart'] = [];
 
-            if (!$plugin) {
-                log_message('error', 'Plugin not found: ' . $order->plugin_id);
-                $order_data = [
-                    "status" => "failed",
-                ];
-
-                $this->Webhut_orders_model->ci_save($order_data, $order_id);
-                $view_data['message'] = "Plugin not found.";
-                return $this->template->rander("webhut_plugins/success", $view_data); 
-            }
-
-            $community = basename($order->community);
-
-            $copied = $this->copy_plugin_zip($plugin->zip_file, $community);
-
-            if ($copied) {
-                $user_data = $this->login_user;
-                $email = $user_data->email;
-
-                $subject = "Plugin Purchase Successful - Webhut";
-                $user_name = $user_data->first_name . ' ' . $user_data->last_name;
-                $message = "
-                    <h1>Hi, {$user_name}</h1>
-
-                    <p>Your payment has been successfully completed.</p>
-
-                    <p><strong>Order ID:</strong> #{$order_id}</p>
-                    <p><strong>Plugin:</strong> {$plugin->name}</p>
-                    <p><strong>Community:</strong> {$community}</p>
-
-                    <p>The plugin has been successfully added to your account and is now ready for installation.</p>
-
-                    <p>You can install and manage your plugin from your dashboard.</p>
-
-                    <br>
-
-                    <p><a href='" . base_url('Webhut_plugins/history') . "' 
+            $email     = $user_data->email;
+            $user_name = $user_data->first_name . ' ' . $user_data->last_name;
+            $subject   = "Plugin Purchase Successful - Webhut";
+            $message   = "
+                <h1>Hi, {$user_name}</h1>
+                <p>Your payment has been successfully completed for <strong>{$copied_count}</strong> plugin(s).</p>
+                <p><strong>Order IDs:</strong> #{$order_ids_str}</p>
+                <br>
+                <p><a href='" . base_url('Webhut_plugins/history') . "'
                     style='padding:10px 15px; background:#28a745; color:#fff; text-decoration:none; border-radius:5px;'>
                     View Purchase History
-                    </a></p>
+                </a></p>
+                <br>
+                <p>Thank you for choosing Webhut!</p>
+                <p>Best Regards,<br>Webhut Team</p>
+            ";
+            // send_app_mail($email, $subject, $message);
 
-                    <br>
+            $view_data['message'] = "Payment successful. {$copied_count} plugin(s) ready for installation.";
 
-                    <p>Thank you for choosing Webhut!</p>
-
-                    <p>Best Regards,<br>
-                    Webhut Team</p>
-                    ";
-
-                // send_app_mail($email, $subject, $message);
-                $view_data['message'] = "Payment successful. Plugin ready for installation.";
-            } else {
-                $order_data = [
-                    "status" => "failed",
+        } else {
+            foreach ($order_ids as $order_id) {
+                $data = [
+                    "payment_status"   => "failed",
+                    "transaction_id"   => $session->payment_intent ?? null,
+                    "status"           => "failed",
+                    "payment_response" => json_encode($session),
                 ];
 
-                $this->Webhut_orders_model->ci_save($order_data, $order_id);
-                $view_data['message'] = "Payment successful, but plugin file copy failed.";
+                $this->Webhut_orders_model->ci_save($data, intval($order_id));
             }
-        }else{
-            $order_data = [
-                "payment_status" => "failed",
-                "transaction_id" => isset($session->payment_intent) ? $session->payment_intent : null,
-                "status" => "failed",
-                "payment_response" => json_encode($session),
-            ];
-
-            $this->Webhut_orders_model->ci_save($order_data, $order_id);
-
             $view_data['message'] = "Payment failed or cancelled. Please try again.";
-        }       
+        }
 
         return $this->template->rander("webhut_plugins/success", $view_data);
     }
@@ -547,42 +520,33 @@ class Webhut_plugins extends Security_Controller {
         return true;
     }
 
-    public function cancel()
-    {
-        $order_id = $this->request->getGet('order_id');
-        $session_id = $this->request->getGet('session_id');
+    public function cancel() {
+        $order_ids_str = $this->request->getGet('order_ids');
+        $session_id    = $this->request->getGet('session_id');
+        $order_ids     = explode(',', $order_ids_str);
 
         $stripePaymentMethod = $this->Payment_methods_model->get_oneline_payment_method('stripe');
-        $payment_setting = $this->Payment_methods_model->get_one_with_settings($stripePaymentMethod->id);
-        
+        $payment_setting     = $this->Payment_methods_model->get_one_with_settings($stripePaymentMethod->id);
         \Stripe\Stripe::setApiKey($payment_setting->secret_key);
 
         $session = \Stripe\Checkout\Session::retrieve($session_id);
 
+        $status = ($session->payment_status ?? '') == 'unpaid' ? 'cancelled' : 'failed';
 
-        if (isset($session) && $session->payment_status == 'unpaid') {
-            $order_data = [
-                "payment_status" => "failed",
-                "transaction_id" => isset($session->payment_intent) ? $session->payment_intent : null,
-                "status" => "cancelled",
+        foreach ($order_ids as $order_id) {
+            $data = [
+                "payment_status"   => "failed",
+                "transaction_id"   => $session->payment_intent ?? null,
+                "status"           => $status,
                 "payment_response" => json_encode($session),
             ];
 
-            $this->Webhut_orders_model->ci_save($order_data, $order_id);
-
-            $view_data['message'] = "Order cancelled.";
-        }else{
-            $order_data = [
-                "payment_status" => "failed",
-                "transaction_id" => isset($session->payment_intent) ? $session->payment_intent : null,
-                "status" => "failed",
-                "payment_response" => json_encode($session),
-            ];
-
-            $this->Webhut_orders_model->ci_save($order_data, $order_id);
-
-            $view_data['message'] = "Payment failed or cancelled. Please try again.";
+            $this->Webhut_orders_model->ci_save($data, intval($order_id));
         }
+
+        $view_data['message'] = $status === 'cancelled'
+            ? "Order cancelled."
+            : "Payment failed or cancelled. Please try again.";
 
         return $this->template->rander("webhut_plugins/cancel", $view_data);
     }
