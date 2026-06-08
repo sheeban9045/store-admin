@@ -1,3 +1,9 @@
+<style>
+    .bg-success{
+        background-color: #D4EDDA !important;
+        color: #155747 !important;
+    }
+</style>
 <div id="page-content" class="page-wrapper clearfix">
     <?php echo announcements_alert_widget(); ?>
 
