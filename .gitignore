@@ -5,3 +5,4 @@ public/stripe/
 system/
 app/ThirdParty/
 app/Config/Database.php
+uploads/plugins

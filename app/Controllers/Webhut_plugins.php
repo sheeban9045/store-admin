@@ -320,14 +320,14 @@ class Webhut_plugins extends Security_Controller {
             $where = "plugin_id = $plugin_id AND user_id = $user_data->id AND community = '$community' AND payment_status = 'success' AND status = 'success'";
             $purchased = $this->Webhut_orders_model->get_plugin_purchased_by_client($where)->getResult();
             if (!empty($purchased)) {
-                $errors[] = "Plugin ID $plugin_id already purchased for '$community'.";
+                $errors[] = "Plugin already purchased for the community. Please select another community or remove the item from the cart.";
                 continue;
             }
 
             // Plugin data
             $plugin = $this->Webhut_plugins_model->get_details(["id" => $plugin_id])->getRow();
             if (!$plugin) {
-                $errors[] = "Plugin ID $plugin_id not found.";
+                $errors[] = "Plugin '{$plugin->name}' not found.";
                 continue;
             }
 
@@ -611,5 +611,30 @@ class Webhut_plugins extends Security_Controller {
             $status,
             $date
         );
+    }
+
+    public function check_already_purchased() {
+        $plugin_id = $this->request->getPost('plugin_id');
+        $community = $this->request->getPost('community');
+        $user_data = $this->login_user;
+
+        if (!$plugin_id || !$community) {
+            echo json_encode(["already_purchased" => false]);
+            return;
+        }
+
+        $where = "plugin_id = $plugin_id 
+                AND user_id = $user_data->id 
+                AND community = '$community' 
+                AND payment_status = 'success' 
+                AND status = 'success'";
+
+        $purchased = $this->Webhut_orders_model
+                        ->get_plugin_purchased_by_client($where)
+                        ->getResult();
+
+        echo json_encode([
+            "already_purchased" => !empty($purchased)
+        ]);
     }
 }
