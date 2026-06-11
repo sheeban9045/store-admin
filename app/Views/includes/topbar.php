@@ -39,7 +39,9 @@
 
             <div class="d-flex w-auto">
                 <ul class="navbar-nav">
-
+                    <li class="nav-item hidden-sm" title="visit website" data-bs-toggle="tooltip" data-placement="left">
+                        <?php echo anchor(get_uri("/"), "Visit Website", array("class" => "nav-link", "target" => "_blank")); ?>
+                    </li>
                     <?php
                     if ($login_user->user_type == "staff") {
                         load_js(array("assets/js/awesomplete/awesomplete.min.js"));
