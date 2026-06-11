@@ -40,7 +40,7 @@
             <div class="d-flex w-auto">
                 <ul class="navbar-nav">
                     <li class="nav-item hidden-sm" title="visit website" data-bs-toggle="tooltip" data-placement="left">
-                        <?php echo anchor(get_uri("/"), "Visit Website", array("class" => "nav-link", "target" => "_blank")); ?>
+                        <a href="/" class="nav-link" target="_blank">Visit Website</a>
                     </li>
                     <?php
                     if ($login_user->user_type == "staff") {
