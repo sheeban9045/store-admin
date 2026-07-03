@@ -219,6 +219,25 @@
             </div>
         </div>
 
+        <!-- JSON File -->
+        <div class="form-group">
+            <div class="row">
+                <label class="col-md-3"><?php echo app_lang('json_file'); ?></label>
+                <div class="col-md-9">
+                    <input type="file" name="json_file" class="form-control" accept=".json" />
+
+                    <?php if (!empty($model_info->json_file)): ?>
+                        <small class="text-muted mt-1 d-block">
+                            <i data-feather="file" class="icon-14"></i>
+                            <?php echo $model_info->json_file; ?>
+                        </small>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
+        <input type="hidden" name="hidden_json_file" value="<?php echo $model_info->json_file ?? ''; ?>" />
+
         <!-- Icon -->
         <div class="form-group">
             <div class="row">
