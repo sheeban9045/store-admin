@@ -2263,6 +2263,7 @@ $lang['upcoming'] = "Upcoming";
 $lang['plugin_tags'] = "Plugin Tags";
 $lang['featured'] = "Featured";
 $lang['best_sale'] = "Best Sale";
+$lang['json_file'] = "Json File";
 
 
 

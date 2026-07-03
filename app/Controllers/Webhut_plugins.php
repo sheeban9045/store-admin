@@ -115,6 +115,27 @@ class Webhut_plugins extends Security_Controller {
             $zip_file = $zip_name;
         }
 
+        $json_file = $this->request->getPost('hidden_json_file');
+        $json = $this->request->getFile('json_file');
+
+        if ($json && $json->isValid()) {
+
+            // OLD JSON DELETE
+            if (!empty($json_file)) {
+                $old_json_path = FCPATH . "uploads/plugins/json/" . $json_file;
+
+                if (file_exists($old_json_path)) {
+                    unlink($old_json_path);
+                }
+            }
+
+            $clean_version = str_replace('.', '_', $version);
+            $json_name = $clean_code . "_" . $clean_version . ".json";
+
+            $json->move(FCPATH . "uploads/plugins/json/", $json_name, true);
+            $json_file = $json_name;
+        }
+
         // --- Icon upload ---
         $icon = $this->request->getPost('hidden_icon');
         $icon_file = $this->request->getFile('icon');
@@ -164,6 +185,7 @@ class Webhut_plugins extends Security_Controller {
             "is_best_sale"   => $this->request->getPost('is_best_sale') ? 1 : 0,
             "is_featured"    => $this->request->getPost('is_featured') ? 1 : 0,
             "zip_file"       => $zip_file,
+            "json_file"      => $json_file,
             "icon"           => $icon,
             "photos"         => json_encode($photos),
         );
@@ -441,7 +463,7 @@ class Webhut_plugins extends Security_Controller {
                 if (!$plugin) continue;
 
                 $community = basename($order->community);
-                $copied    = $this->copy_plugin_zip($plugin->zip_file, $community);
+                $copied    = $this->copy_plugin_files($plugin->zip_file, $plugin->json_file, $community);
 
                 if ($copied) {
                     $copied_count++;
@@ -489,33 +511,65 @@ class Webhut_plugins extends Security_Controller {
         return $this->template->rander("webhut_plugins/success", $view_data);
     }
 
-    private function copy_plugin_zip($zip_file, $community)
+    private function copy_plugin_files($zip_file, $json_file, $community)
     {
-        $source = FCPATH . "uploads/plugins/zips/" . $zip_file;
-        $destination_dir = FCPATH . "../" . $community . "/uploads/plugins/zips/";
-        $destination = $destination_dir . $zip_file;
+        $source_zip  = FCPATH . "uploads/plugins/zips/" . $zip_file;
+        $source_json = FCPATH . "uploads/plugins/json/" . $json_file;
 
-        // 🔹 Check source file
-        if (!file_exists($source)) {
-            log_message('error', 'Source zip not found: ' . $source);
+        $modules_dir  = FCPATH . "../" . $community . "/application/modules/";
+        $packages_dir = FCPATH . "../" . $community . "/application/packages/";
+
+        if (!file_exists($source_zip)) {
+            log_message('error', 'Source zip not found: ' . $source_zip);
             return false;
         }
 
-        // 🔹 Create destination folder if not exists
-        if (!is_dir($destination_dir)) {
-            if (!mkdir($destination_dir, 0777, true)) {
-                log_message('error', 'Failed to create directory: ' . $destination_dir);
+        if (!file_exists($source_json)) {
+            log_message('error', 'Source json not found: ' . $source_json);
+            return false;
+        }
+
+        if (!is_dir($modules_dir)) {
+            if (!mkdir($modules_dir, 0777, true)) {
+                log_message('error', 'Failed to create modules directory: ' . $modules_dir);
                 return false;
             }
         }
 
-        // 🔹 Copy file
-        if (!copy($source, $destination)) {
-            log_message('error', 'Failed to copy zip file to: ' . $destination);
+        if (!is_dir($packages_dir)) {
+            if (!mkdir($packages_dir, 0777, true)) {
+                log_message('error', 'Failed to create packages directory: ' . $packages_dir);
+                return false;
+            }
+        }
+
+        $zip_destination = $modules_dir . $zip_file;
+
+        if (!copy($source_zip, $zip_destination)) {
+            log_message('error', 'Failed to copy zip file: ' . $zip_destination);
             return false;
         }
 
-        log_message('info', 'Plugin zip copied successfully to: ' . $destination);
+        $zip = new \ZipArchive();
+
+        if ($zip->open($zip_destination) === TRUE) {
+            $zip->extractTo($modules_dir);
+            $zip->close();
+
+            unlink($zip_destination);
+        } else {
+            log_message('error', 'Failed to extract zip file: ' . $zip_destination);
+            return false;
+        }
+
+        $json_destination = $packages_dir . $json_file;
+
+        if (!copy($source_json, $json_destination)) {
+            log_message('error', 'Failed to copy json file: ' . $json_destination);
+            return false;
+        }
+
+        log_message('info', 'Plugin files copied and extracted successfully');
 
         return true;
     }
