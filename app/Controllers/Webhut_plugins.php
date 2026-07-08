@@ -289,7 +289,7 @@ class Webhut_plugins extends Security_Controller {
             }
         }
 
-        if (empty($plugins)) show_404();
+        // if (empty($plugins)) show_404();
 
         $view_data['plugins'] = $plugins;
 
@@ -689,6 +689,27 @@ class Webhut_plugins extends Security_Controller {
 
         echo json_encode([
             "already_purchased" => !empty($purchased)
+        ]);
+    }
+
+    public function remove_cart_item()
+    {
+        $plugin_id = $this->request->getPost('plugin_id');
+
+        if (!empty($_SESSION['cart'])) {
+
+            foreach ($_SESSION['cart'] as $key => $item) {
+
+                if ($item['id'] == $plugin_id) {
+                    unset($_SESSION['cart'][$key]);
+                }
+            }
+
+            $_SESSION['cart'] = array_values($_SESSION['cart']);
+        }
+
+        return $this->response->setJSON([
+            'success' => true
         ]);
     }
 }
