@@ -45,7 +45,7 @@ class Webhut_orders_model extends Crud_model {
         $plugins_table = $this->db->prefixTable('webhut_plugins');
 
         return $this->db->table($orders_table . ' as o')
-            ->select('o.*, p.name as plugin_name, p.icon as plugin_icon')
+            ->select('o.*, p.name as plugin_name, p.icon as plugin_icon, p.tar_file as plugin_tar_file')
             ->join($plugins_table . ' as p', 'p.id = o.plugin_id', 'left')
             ->where('o.user_id', $user_id)
             ->orderBy('o.id', 'DESC')

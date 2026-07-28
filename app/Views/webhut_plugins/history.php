@@ -32,6 +32,7 @@
                 {title: "<?php echo app_lang('payment_status'); ?>", "class": "text-center"},
                 {title: "<?php echo app_lang('status'); ?>", "class": "text-center"},
                 {title: "<?php echo app_lang('date'); ?>"},
+                {title: "<?php echo app_lang('action'); ?>", "class": "text-center"},
             ],
             printColumns: [0,1,2,3,4,5,6],
             xlsColumns:   [0,1,2,3,4,5,6]

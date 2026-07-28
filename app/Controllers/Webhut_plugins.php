@@ -681,6 +681,13 @@ class Webhut_plugins extends Security_Controller {
 
         $date = date("d M Y", strtotime($data->created_at));
 
+        $action = "-";
+        if ($data->payment_status == "success" && $data->status == "success" && !empty($data->plugin_tar_file)) {
+            $action = "<a href='" . get_uri("webhut_plugins/download_tar/" . $data->id) . "' class='btn btn-primary btn-sm' target='_blank'>
+                            <span data-feather='download' class='icon-14'></span> " . app_lang('download') . "
+                        </a>";
+        }
+        
         return array(
             $icon,
             $plugin_name,
@@ -688,7 +695,8 @@ class Webhut_plugins extends Security_Controller {
             $amount,
             $payment_status,
             $status,
-            $date
+            $date,
+            $action
         );
     }
 
@@ -736,5 +744,37 @@ class Webhut_plugins extends Security_Controller {
         return $this->response->setJSON([
             'success' => true
         ]);
+    }
+
+    public function download_tar($order_id) {
+        $user_data = $this->login_user;
+
+        $order = $this->Webhut_orders_model->get_details(array("id" => $order_id))->getRow();
+
+        if (!$order || $order->user_id != $user_data->id) {
+            show_404();
+            return;
+        }
+
+        if ($order->payment_status != "success" || $order->status != "success") {
+            show_404();
+            return;
+        }
+
+        $plugin = $this->Webhut_plugins_model->get_one($order->plugin_id);
+
+        if (!$plugin || empty($plugin->tar_file)) {
+            show_404();
+            return;
+        }
+
+        $tar_path = FCPATH . "uploads/plugins/tars/" . $plugin->tar_file;
+
+        if (!file_exists($tar_path)) {
+            show_404();
+            return;
+        }
+
+        return $this->response->download($tar_path, null);
     }
 }
