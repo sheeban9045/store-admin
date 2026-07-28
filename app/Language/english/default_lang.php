@@ -2265,7 +2265,7 @@ $lang['featured'] = "Featured";
 $lang['best_sale'] = "Best Sale";
 $lang['json_file'] = "Json File";
 $lang['action'] = "Action";
-
+$lang["tar_file"] = "Tar File";
 
 
 

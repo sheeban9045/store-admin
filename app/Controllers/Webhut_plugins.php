@@ -115,6 +115,30 @@ class Webhut_plugins extends Security_Controller {
             $zip_file = $zip_name;
         }
 
+        $tar_file = $this->request->getPost('hidden_tar_file');
+        $tar = $this->request->getFile('tar_file');
+
+        if ($tar && $tar->isValid()) {
+
+            if (!empty($tar_file)) {
+                $old_tar_path = FCPATH . "uploads/plugins/tars/" . $tar_file;
+
+                if (file_exists($old_tar_path)) {
+                    unlink($old_tar_path);
+                }
+            }
+
+            $clean_version = str_replace('.', '_', $version);
+
+            $original_name = $tar->getName();
+            $ext = (stripos($original_name, '.tar.gz') !== false) ? 'tar.gz' : $tar->getExtension();
+
+            $tar_name = $clean_code . "_" . $clean_version . "." . $ext;
+
+            $tar->move(FCPATH . "uploads/plugins/tars/", $tar_name, true);
+            $tar_file = $tar_name;
+        }
+
         $json_file = $this->request->getPost('hidden_json_file');
         $json = $this->request->getFile('json_file');
 
@@ -185,6 +209,7 @@ class Webhut_plugins extends Security_Controller {
             "is_best_sale"   => $this->request->getPost('is_best_sale') ? 1 : 0,
             "is_featured"    => $this->request->getPost('is_featured') ? 1 : 0,
             "zip_file"       => $zip_file,
+            "tar_file"       => $tar_file,
             "json_file"      => $json_file,
             "icon"           => $icon,
             "photos"         => json_encode($photos),
