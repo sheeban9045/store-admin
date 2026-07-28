@@ -11,6 +11,7 @@
         <input type="hidden" name="hidden_zip_file" value="<?php echo $model_info->zip_file ?? ''; ?>" />
         <input type="hidden" name="hidden_icon"    value="<?php echo $model_info->icon ?? ''; ?>" />
         <input type="hidden" name="existing_photos" value="<?php echo $model_info->photos ?? '[]'; ?>" />
+        <input type="hidden" name="hidden_tar_file" value="<?php echo $model_info->tar_file ?? ''; ?>" />
 
         <!-- Name -->
         <div class="form-group">
@@ -213,6 +214,21 @@
                         <small class="text-muted mt-1 d-block">
                             <i data-feather="file" class="icon-14"></i>
                             <?php echo $model_info->zip_file; ?>
+                        </small>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <div class="row">
+                <label class="col-md-3"><?php echo app_lang('tar_file'); ?></label>
+                <div class="col-md-9">
+                    <input type="file" name="tar_file" class="form-control" accept=".tar,.tar.gz,.tgz" />
+                    <?php if (!empty($model_info->tar_file)): ?>
+                        <small class="text-muted mt-1 d-block">
+                            <i data-feather="file" class="icon-14"></i>
+                            <?php echo $model_info->tar_file; ?>
                         </small>
                     <?php endif; ?>
                 </div>
