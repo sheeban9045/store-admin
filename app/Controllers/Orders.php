@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Controllers;
-// require('/var/www/html/stripe/init.php');
+require('/var/www/html/stripe/init.php');
 
 class Orders extends Security_Controller {
 
@@ -1813,4 +1813,4 @@ class Orders extends Security_Controller {
 }
 
 /* End of file orders.php */
-/* Location: ./app/controllers/orders.php */
+/* Location: ./app/controllers/orders.php */ 
