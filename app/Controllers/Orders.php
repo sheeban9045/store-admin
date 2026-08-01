@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Controllers;
-// require('/var/www/html/stripe/init.php');
+require('/var/www/html/stripe/init.php');
 
 class Orders extends Security_Controller {
 
