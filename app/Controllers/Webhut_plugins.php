@@ -351,14 +351,17 @@ class Webhut_plugins extends Security_Controller {
             }
 
             $where = "domain_name = '$community' AND is_community_set = 1 AND deleted = 0 AND is_domain_created = 1";
-            $is_community_exist = $this->Orders_model->get_community_by_client($user_data->id, $where)->getResult();
+            $is_community_exist = $this->Orders_model->get_community_by_client($user_data->id, $where)->getRow();
             if (!$is_community_exist) {
                 $errors[] = "Community '$community' does not exist.";
                 continue;
             }
 
             $community_path = FCPATH . "../" . $community;
-            if (!is_dir($community_path)) {
+
+            $is_community_self = (isset($is_community_exist->self) && $is_community_exist->self == 1) ? true : false;
+
+            if (!$is_community_self && !is_dir($community_path)) {
                 $errors[] = "Community folder for '$community' not found on server.";
                 continue;
             }
@@ -488,7 +491,13 @@ class Webhut_plugins extends Security_Controller {
                 if (!$plugin) continue;
 
                 $community = basename($order->community);
-                $copied    = $this->copy_plugin_files($plugin->zip_file, $plugin->json_file, $community);
+
+                $check_self_community = $this->Orders_model->check_self_community($order->community);
+                if (!$check_self_community) {
+                    $copied    = $this->copy_plugin_files($plugin->zip_file, $plugin->json_file, $community);
+                } else {
+                    $copied = true;
+                }
 
                 if ($copied) {
                     $copied_count++;

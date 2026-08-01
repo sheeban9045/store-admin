@@ -334,6 +334,21 @@ class Orders_model extends Crud_model {
         return $this->db->query($sql);
     }
 
+    function check_self_community($community)
+    {
+        $orders_table = $this->db->prefixTable('orders');
+
+        $sql = "SELECT self FROM $orders_table WHERE domain_name = '".$community."' LIMIT 1";
+
+        $result = $this->db->query($sql)->getRow();
+
+        if ($result && $result->self == 1) {
+            return true;
+        }
+
+        return false;
+    }
+
 
 }
 
