@@ -73,37 +73,59 @@
                     </div>
 
 
-                   <div class="form-group">
-                   
-                                <div class="row">
-                                    <label for="domain_name" class=" col-md-3"><?php echo app_lang('domain'); ?></label>
-                                     
-                                    <div class=" col-md-9">
-                                          <div class="row">
-                                             
-                                             <div class="col-sm-6">
-                                                  <input type="text" name="domain_name" id="checklists_dropdown" echo="already exist" class="form-control"  data-rich-text-editor="true" data-msg-required="<?php echo app_lang('field_required'); ?>" placeholder="<?php echo app_lang('domain_name'); 
-                                                  ?>"
+                    <div class="form-group">
+                        <div class="row">
+                            <label class=" col-md-3"><?php echo app_lang('domain'); ?></label>
+                            <div class=" col-md-9">
 
-                                                <?php
-                                                echo form_input(array(
-                                                    "id" => "domain_name",
-                                                    "name" => "domain_name",
-                                                    "class" => "form-control",
-                                                  
-                                               
-                                                ));                                      
-                                                  ?>
-                                             </div> 
-                                             <div class="col-sm-6">
-                                                 <input type="text" name="" disabled value=".webhut.net" class="form-control">
-                                             </div>
+                                <!-- Radio options -->
+                                <div class="mb10">
+                                    <label class="radio-inline mr15">
+                                        <input type="radio" name="domain_type" value="webhut" id="domain_type_webhut" checked>
+                                        <?php echo app_lang('with_webhut_domain'); // "webhut.net ke sath" ?>
+                                    </label>
+                                    <label class="radio-inline">
+                                        <input type="radio" name="domain_type" value="self" id="domain_type_self">
+                                        <?php echo app_lang('self_domain'); // "Apna Domain" ?>
+                                    </label>
+                                </div>
+
+                                <!-- webhut.net wala option (default) -->
+                                <div class="row" id="webhut_domain_wrapper">
+                                    <div class="col-sm-6">
+                                        <?php
+                                        echo form_input(array(
+                                            "id" => "domain_name",
+                                            "name" => "domain_name",
+                                            "class" => "form-control",
+                                            "placeholder" => app_lang('domain_name'),
+                                            "data-rule-required" => "true",
+                                            "data-msg-required" => app_lang('field_required')
+                                        ));
+                                        ?>
+                                    </div>
+                                    <div class="col-sm-6">
+                                        <input type="text" disabled value=".webhut.net" class="form-control">
                                     </div>
                                 </div>
+
+                                <!-- Self domain wala option (hidden by default) -->
+                                <div class="row" id="self_domain_wrapper" style="display:none;">
+                                    <div class="col-sm-12">
+                                        <?php
+                                        echo form_input(array(
+                                            "id" => "self_domain_name",
+                                            "name" => "self_domain_name",
+                                            "class" => "form-control",
+                                            "placeholder" => "example.com"
+                                        ));
+                                        ?>
+                                    </div>
+                                </div>
+
                             </div>
-                    <?php echo view("custom_fields/form/prepare_context_fields", array("custom_fields" => $custom_fields, "label_column" => "col-md-3", "field_column" => " col-md-9")); ?>
-                </div>
-            </div>
+                        </div>
+                    </div>
             <div  id="order-dropzone" class="post-dropzone">
                 <?php echo view("includes/dropzone_preview"); ?>
                 <div class="card-footer clearfix">
@@ -183,6 +205,21 @@
     
         // Code Add By anuj
         $(document).ready(function () {
+            $('input[name="domain_type"]').on('change', function () {
+                if ($(this).val() === 'self') {
+                    $('#webhut_domain_wrapper').hide();
+                    $('#self_domain_wrapper').show();
+
+                    $('#domain_name').removeAttr('data-rule-required');
+                    $('#self_domain_name').attr('data-rule-required', 'true');
+                } else {
+                    $('#self_domain_wrapper').hide();
+                    $('#webhut_domain_wrapper').show();
+
+                    $('#self_domain_name').removeAttr('data-rule-required');
+                    $('#domain_name').attr('data-rule-required', 'true');
+                }
+            });
         // Initialize Stripe
         // const stripe = Stripe('pk_test_51NtQ6RSEwmFRxEh6eVlUmzbFuiDbRQMyVN1iXGrSIK8QZGSgS41wzKsGWER81vQOoZBg0GRpy0lXgcw1GBgndDuW00dSBCp2DW');
         const stripe = Stripe("<?php echo $payment_setting->publishable_key;?>");

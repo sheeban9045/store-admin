@@ -52,5 +52,33 @@
             ],
             summation: [{column: 4, dataType: 'currency'}]
         });
+
+        $(document).on('click', '[data-act="send-self-community-email"]', function () {
+            var order_id = $(this).attr('data-id');
+
+            if (!confirm("Kya aap community setup ke liye email bhejna chahte hain?")) {
+                return;
+            }
+
+            appLoader.show();
+            $.ajax({
+                url: '<?php echo_uri("orders/send_self_community_email") ?>',
+                type: 'POST',
+                dataType: 'json',
+                data: { order_id: order_id },
+                success: function (result) {
+                    appLoader.hide();
+                    if (result.success) {
+                        toastr.success(result.message);
+                    } else {
+                        toastr.error(result.message);
+                    }
+                },
+                error: function () {
+                    appLoader.hide();
+                    toastr.error("Something went wrong!");
+                }
+            });
+        });
     });
 </script>
