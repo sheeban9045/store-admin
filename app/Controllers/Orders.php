@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Controllers;
-require('/var/www/html/stripe/init.php');
+// require('/var/www/html/stripe/init.php');
 
 class Orders extends Security_Controller {
 
@@ -249,24 +249,35 @@ class Orders extends Security_Controller {
         $qty_min_order = get_setting('qty_min_order');
         $qty_max_order = get_setting('qty_max_order');
         $domain_name = $this->request->getPost('domain_name').".webhut.net";
+        $domain_type = $this->request->getPost('domain_type'); // "self" or "webhut"
+
+        if ($domain_type === 'self') {
+            $domain_name = trim($this->request->getPost('self_domain_name'));
+        } else {
+            $domain_name = trim($this->request->getPost('domain_name')) . ".webhut.net";
+        }
         // $client_id = $this->request->getPost('client_id');
         $invoice_labels = make_labels_view_data('label', true, true);
         $client_id = !empty($client_id)? $client_id: $this->login_user->client_id;
-          // Validate the domain name
-          if( !empty($domain_name) ) {
-                $isDomainExist = $this->Orders_model->is_domain_exists($domain_name);
-                if( !empty($isDomainExist) ) {
-                    echo json_encode(array("success" => false, 'message' => 'Domain already exist in database, please choose other domain name!'));
-                    exit;
-                }
-                else if (!preg_match('/^[a-zA-Z0-9\-]+$/', $this->request->getPost('domain_name'))) {
-                    echo json_encode(array("success" => false, 'message' => 'Invalid domain format,please choose other domain name(Not Include "_"," ")!'));
-                    exit;
-                }
-            }else {
-                echo json_encode(array("success" => false, 'message' => 'Domain could not be empty!'));
+        // Validate the domain name
+        if (!empty($domain_name)) {
+            $isDomainExist = $this->Orders_model->is_domain_exists($domain_name);
+            if (!empty($isDomainExist)) {
+                echo json_encode(array("success" => false, 'message' => 'Domain already exist in database, please choose other domain name!'));
                 exit;
-          }
+            } else {
+                $raw_input = ($domain_type === 'self') ? $domain_name : $this->request->getPost('domain_name');
+                $pattern = ($domain_type === 'self') ? '/^[a-zA-Z0-9\-\.]+$/' : '/^[a-zA-Z0-9\-]+$/';
+
+                if (!preg_match($pattern, $raw_input)) {
+                    echo json_encode(array("success" => false, 'message' => 'Invalid domain format, please choose other domain name(Not Include "_"," ")!'));
+                    exit;
+                }
+            }
+        } else {
+            echo json_encode(array("success" => false, 'message' => 'Domain could not be empty!'));
+            exit;
+        }
 
          $clientDueValue = get_setting("type_payment_" . $client_id);
          $clientDueValue = !empty($clientDueValue)? $clientDueValue: 'monthly';
@@ -360,12 +371,13 @@ class Orders extends Security_Controller {
             "note" => $this->request->getPost('order_note'),
             "limit" =>  get_setting('limit'),
             // "delivery_date" => str_replace('T', ' ', $delivery_date),
-             "domain_name" => $this->request->getPost('domain_name').".webhut.net",
+             "domain_name" => $domain_name,
             "created_by" => $this->login_user->id,
             "status_id" => $this->Order_status_model->get_first_status(),
             "tax_id" => get_setting('order_tax_id') ? get_setting('order_tax_id') : 0,
             "tax_id2" => get_setting('order_tax_id2') ? get_setting('order_tax_id2') : 0,
-            "company_id" => $this->request->getPost('company_id') ? $this->request->getPost('company_id') : get_default_company_id()
+            "company_id" => $this->request->getPost('company_id') ? $this->request->getPost('company_id') : get_default_company_id(),
+            "self" => ($domain_type === 'self') ? 1 : 0,
         );
 
          //  echo'<pre>';
@@ -1082,6 +1094,7 @@ class Orders extends Security_Controller {
           $checkmark = js_anchor("<input type='checkbox' name='monthly_checkbox_order_ids' id 'checkbox_ $data->id' value=' $data->id' />", );
           $limit = get_setting("limit");
           $domain_name = $data->domain_name;
+          $is_webhut_domain = (substr($domain_name, -11) === '.webhut.net');
           $client_id = $data->client_id;
         $order_date = $data->order_date;
         
@@ -1146,10 +1159,30 @@ class Orders extends Security_Controller {
             $row_data[] = modal_anchor(get_uri("orders/modal_form"), "<i data-feather='edit' class='icon-16'></i>", array("class" => "edit", "title" => app_lang('edit_order'), "data-post-id" => $data->id))
                     . js_anchor("<i data-feather='x' class='icon-16'></i>", array('title' => app_lang('delete_order'), "class" => "delete", "data-id" => $data->id, "data-action-url" => get_uri("orders/delete"), "data-action" => "delete"));
         }
-        if(isset($data->is_community_set) && $data->is_community_set == 1 ){
-            $row_data[] = modal_anchor(get_uri("orders/modal_community?view=1&order_id=".($data->id)), "View", array("class" => "edit btn btn-success ", "title" => "View Community")); 
-        }else{        
-            $row_data[] = modal_anchor(get_uri("orders/modal_community?order_id=".($data->id)), "Setup", array("class" => "edit btn btn-primary", "title" => "Setup Community"));  
+        if ($is_webhut_domain) {
+            if(isset($data->is_community_set) && $data->is_community_set == 1 ){
+                $row_data[] = modal_anchor(get_uri("orders/modal_community?view=1&order_id=".($data->id)), "View", array("class" => "edit btn btn-success ", "title" => "View Community")); 
+            }else{        
+                $row_data[] = modal_anchor(get_uri("orders/modal_community?order_id=".($data->id)), "Setup", array("class" => "edit btn btn-primary", "title" => "Setup Community"));  
+            }
+        } else {
+            $download_btn = anchor(
+                get_uri("orders/download_community_files?order_id=" . $data->id),
+                "<i data-feather='download' class='icon-16'></i>",
+                array("class" => "btn btn-primary btn-sm m-1", "title" => "Download Community Files")
+            );
+
+            $email_btn = js_anchor(
+                "<i data-feather='mail' class='icon-16'></i>",
+                array(
+                    "class"      => "btn btn-warning btn-sm m-1",
+                    "title"      => "Email admin for self community setup",
+                    "data-id"    => $data->id,
+                    "data-act"   => "send-self-community-email"
+                )
+            );
+
+            $row_data[] = $download_btn . $email_btn;
         }
         if(!empty($data->stripe_response)) {
             $row_data[] = modal_anchor(get_uri("orders/view_invoices?order_id=".($data->id)), "View Invoice", array("class" => "edit btn btn-success", "title" => "View Invoices"));
@@ -1157,6 +1190,91 @@ class Orders extends Security_Controller {
             $row_data[] = "<a href = 'javascript:void(0)' title = 'No Invoice Available' class = 'btn btn-secondary'>View Invoice</a>";
         }
         return $row_data;
+    }
+
+    function download_community_files() {
+        $this->check_access_to_store();
+
+        $order_id = $this->request->getGet('order_id');
+        validate_numeric_value($order_id);
+
+        $order = $this->Orders_model->get_one($order_id);
+        if (empty($order->id)) {
+            show_404();
+        }
+
+        $zip_source_file = "/var/www/html/dummy-community.zip";
+        $sql_source_file = "/var/www/html/webhut96_dummy_community.sql";
+
+        if (!file_exists($zip_source_file) || !file_exists($sql_source_file)) {
+            echo "Required files not found on server.";
+            exit;
+        }
+
+        $final_zip_name = "community_" . $order->domain_name . "_" . date('YmdHis') . ".zip";
+        $final_zip_path = "/var/www/html/uploads/" . $final_zip_name;
+
+        $zip = new ZipArchive();
+        if ($zip->open($final_zip_path, ZipArchive::CREATE | ZipArchive::OVERWRITE) === TRUE) {
+
+            $zip->addFile($zip_source_file, basename($zip_source_file));
+
+            $zip->addFile($sql_source_file, basename($sql_source_file));
+
+            $zip->close();
+        } else {
+            echo "Zip creation failed";
+            exit;
+        }
+
+        if (file_exists($final_zip_path)) {
+            header('Content-Description: File Transfer');
+            header('Content-Type: application/zip');
+            header('Content-Disposition: attachment; filename="' . $final_zip_name . '"');
+            header('Content-Length: ' . filesize($final_zip_path));
+            header('Cache-Control: must-revalidate');
+            header('Pragma: public');
+            readfile($final_zip_path);
+            flush();
+            @unlink($final_zip_path);
+            exit;
+        } else {
+            echo "File not found";
+            exit;
+        }
+    }
+
+    function send_self_community_email() {
+        $this->check_access_to_store();
+
+        $order_id = $this->request->getPost('order_id');
+        validate_numeric_value($order_id);
+
+        $order = $this->Orders_model->get_one($order_id);
+        if (empty($order->id)) {
+            echo json_encode(array("success" => false, "message" => "Order not found"));
+            exit;
+        }
+
+        $client = $this->Clients_model->get_one($order->client_id);
+
+        $admin_email = get_setting("email_sent_from_address");
+
+        $subject = "Self Community Setup Request - Order #" . $order->id;
+        $message = "A client has requested self-domain community setup.<br><br>";
+        $message .= "Order ID: #" . $order->id . "<br>";
+        $message .= "Client: " . $client->company_name . "<br>";
+        $message .= "Domain: " . $order->domain_name . "<br>";
+        $message .= "Please setup the community manually for this order.";
+
+        $sent = send_app_mail($admin_email, $subject, $message);
+
+        if ($sent) {
+            echo json_encode(array("success" => true, "message" => "Email sent successfully to the team."));
+        } else {
+            echo json_encode(array("success" => false, "message" => "Failed to send email. Please try again."));
+        }
+        exit;
     }
     //load the yearly view of order list
     function yearly() {
