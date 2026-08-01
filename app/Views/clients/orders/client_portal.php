@@ -1,3 +1,5 @@
+<link rel="stylesheet" href="<?php echo base_url("assets/css/toastr.css"); ?>" />
+<script src = "<?php echo base_url("assets/js/toastr/toastr.js"); ?>"></script>
 <div id="page-content" class="page-wrapper clearfix">
     <?php echo announcements_alert_widget();?>
 
@@ -56,7 +58,7 @@
         $(document).on('click', '[data-act="send-self-community-email"]', function () {
             var order_id = $(this).attr('data-id');
 
-            if (!confirm("Kya aap community setup ke liye email bhejna chahte hain?")) {
+            if (!confirm("Are you sure you want to send the self-community setup request email?")) {
                 return;
             }
 

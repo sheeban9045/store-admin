@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Controllers;
+use ZipArchive;
 require('/var/www/html/stripe/init.php');
 
 class Orders extends Security_Controller {
@@ -378,6 +379,8 @@ class Orders extends Security_Controller {
             "tax_id2" => get_setting('order_tax_id2') ? get_setting('order_tax_id2') : 0,
             "company_id" => $this->request->getPost('company_id') ? $this->request->getPost('company_id') : get_default_company_id(),
             "self" => ($domain_type === 'self') ? 1 : 0,
+            "is_community_set" => ($domain_type === 'self') ? 1 : 0,
+            "is_domain_created" => ($domain_type === 'self') ? 1 : 0,
         );
 
          //  echo'<pre>';
@@ -1194,54 +1197,24 @@ class Orders extends Security_Controller {
 
     function download_community_files() {
         $this->check_access_to_store();
+        $file = "/var/www/html/download-dummy-community.zip";
 
-        $order_id = $this->request->getGet('order_id');
-        validate_numeric_value($order_id);
-
-        $order = $this->Orders_model->get_one($order_id);
-        if (empty($order->id)) {
-            show_404();
+        if (!file_exists($file)) {
+            die("File not found.");
         }
 
-        $zip_source_file = "/var/www/html/dummy-community.zip";
-        $sql_source_file = "/var/www/html/webhut96_dummy_community.sql";
+        header('Content-Description: File Transfer');
+        header('Content-Type: application/zip');
+        header('Content-Disposition: attachment; filename="' . basename($file) . '"');
+        header('Content-Length: ' . filesize($file));
+        header('Cache-Control: must-revalidate');
+        header('Pragma: public');
+        header('Expires: 0');
 
-        if (!file_exists($zip_source_file) || !file_exists($sql_source_file)) {
-            echo "Required files not found on server.";
-            exit;
-        }
-
-        $final_zip_name = "community_" . $order->domain_name . "_" . date('YmdHis') . ".zip";
-        $final_zip_path = "/var/www/html/uploads/" . $final_zip_name;
-
-        $zip = new ZipArchive();
-        if ($zip->open($final_zip_path, ZipArchive::CREATE | ZipArchive::OVERWRITE) === TRUE) {
-
-            $zip->addFile($zip_source_file, basename($zip_source_file));
-
-            $zip->addFile($sql_source_file, basename($sql_source_file));
-
-            $zip->close();
-        } else {
-            echo "Zip creation failed";
-            exit;
-        }
-
-        if (file_exists($final_zip_path)) {
-            header('Content-Description: File Transfer');
-            header('Content-Type: application/zip');
-            header('Content-Disposition: attachment; filename="' . $final_zip_name . '"');
-            header('Content-Length: ' . filesize($final_zip_path));
-            header('Cache-Control: must-revalidate');
-            header('Pragma: public');
-            readfile($final_zip_path);
-            flush();
-            @unlink($final_zip_path);
-            exit;
-        } else {
-            echo "File not found";
-            exit;
-        }
+        ob_clean();
+        flush();
+        readfile($file);
+        exit;
     }
 
     function send_self_community_email() {
@@ -1754,10 +1727,11 @@ class Orders extends Security_Controller {
             
             );
 
-            // echo '<pre>';
-            // print_r($invoice_item_data);
-            // die;
             $this->Invoice_items_model->ci_save($invoice_item_data);
+        }
+
+        if(isset($order->self) && $order->self == 1){
+            app_redirect("orders");
         }
 
         return $this->template->rander("/orders/success_page",$view_data);
