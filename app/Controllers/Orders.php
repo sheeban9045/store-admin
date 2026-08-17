@@ -1866,6 +1866,18 @@ class Orders extends Security_Controller {
         $view_data = array("order_id" => $order_id);
         return $this->template->rander("/orders/renew_success_page", $view_data);
     }
+
+    public function expire_overdue_monthly_plans() {
+        die("This function is disabled for now. Please enable it if you want to use it.");
+        $expiry_check_last_run_date = get_setting("expiry_check_last_run_date");
+        if (!($expiry_check_last_run_date == "" || ($expiry_check_last_run_date != $this->today))) {
+            return false;
+        }
+
+        $this->ci->Orders_model->expire_overdue_monthly_plans();
+
+        $this->ci->Settings_model->save_setting("expiry_check_last_run_date", $this->today);
+    }
 }
 
 /* End of file orders.php */
