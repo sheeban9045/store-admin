@@ -38,11 +38,11 @@ class Cron_job {
             echo $e;
         }
 
-        try {
-            $this->expire_overdue_monthly_plans();
-        } catch (\Exception $e) {
-            echo $e;
-        }
+        // try {
+        //     $this->expire_overdue_monthly_plans();
+        // } catch (\Exception $e) {
+        //     echo $e;
+        // }
     }
 
     private function call_hourly_jobs() {
@@ -459,17 +459,6 @@ class Cron_job {
 
         //finally send notification
 //        log_notification("recurring_expense_created_vai_cron_job", array("expense_id" => $new_expense_id), "0");
-    }
-
-    private function expire_overdue_monthly_plans() {
-        $expiry_check_last_run_date = get_setting("expiry_check_last_run_date");
-        if (!($expiry_check_last_run_date == "" || ($expiry_check_last_run_date != $this->today))) {
-            return false;
-        }
-
-        $this->ci->Orders_model->expire_overdue_monthly_plans();
-
-        $this->ci->Settings_model->save_setting("expiry_check_last_run_date", $this->today);
     }
 
 }
