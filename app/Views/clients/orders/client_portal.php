@@ -49,6 +49,7 @@
                 <?php echo $custom_field_headers; ?>,
                 // {title: '<i data-feather="menu" class="icon-16"></i>', "class": "text-center option w100"},
                 {title: 'Community', "class": "text-center  w100"},
+                {title: 'Renew', "class": "text-center w100"}
                 {title: 'View Invoices', "class": "text-center  w100"}
 
             ],
@@ -81,6 +82,48 @@
                     toastr.error("Something went wrong!");
                 }
             });
+        });
+    });
+</script>
+
+<script src="https://js.stripe.com/v3/"></script>
+<script>
+    const stripe = Stripe("<?php echo $payment_setting->publishable_key; ?>");
+
+    $(document).on('click', '[data-act="renew-order"]', function () {
+        var order_id = $(this).attr('data-id');
+
+        if (!confirm("Are you sure you want to renew this plan?")) {
+            return;
+        }
+
+        appLoader.show();
+        $.ajax({
+            url: '<?php echo_uri("orders/renew_checkout") ?>',
+            type: 'POST',
+            dataType: 'json',
+            data: { order_id: order_id },
+            success: function (response) {
+                appLoader.hide();
+                if (response.success) {
+                    response.products.forEach(function (product) {
+                        if (product.stripe_price_id) {
+                            stripe.redirectToCheckout({
+                                lineItems: [{ price: product.stripe_price_id, quantity: 1 }],
+                                mode: 'payment',
+                                successUrl: 'http://webhut.net/store-admin/index.php/orders/renew_success_page?order_id=' + response.order_id + '&session_id={CHECKOUT_SESSION_ID}',
+                                cancelUrl: 'http://webhut.net/store-admin/index.php/orders/error_page?order_id=' + response.order_id + '&session_id={CHECKOUT_SESSION_ID}',
+                            });
+                        }
+                    });
+                } else {
+                    toastr.error(response.message);
+                }
+            },
+            error: function () {
+                appLoader.hide();
+                toastr.error("Something went wrong!");
+            }
         });
     });
 </script>
