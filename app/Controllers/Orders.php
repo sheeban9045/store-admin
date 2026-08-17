@@ -20,6 +20,9 @@ class Orders extends Security_Controller {
         
         $view_data["custom_field_filters"] = $this->Custom_fields_model->get_custom_field_filters("orders", $this->login_user->is_admin, $this->login_user->user_type);
 
+        $stripePaymentMethod = $this->Payment_methods_model->get_oneline_payment_method('stripe');
+        $view_data['payment_setting'] = $this->Payment_methods_model->get_one_with_settings($stripePaymentMethod->id);
+
         if ($this->login_user->user_type === "staff") {
             $view_data['order_statuses'] = $this->Order_status_model->get_details()->getResult();
              //$view_data['orders'] = $this->list_data();
@@ -1187,6 +1190,19 @@ class Orders extends Security_Controller {
 
             $row_data[] = $download_btn . $email_btn;
         }
+
+        //Renew button 
+        if (isset($data->plan_status) && $data->plan_status == 'expired') {
+            $row_data[] = js_anchor("Renew", array(
+                "class" => "btn btn-danger btn-sm",
+                "title" => "Renew this plan",
+                "data-id" => $data->id,
+                "data-act" => "renew-order"
+            ));
+        } else {
+            $row_data[] = "-";
+        }
+
         if(!empty($data->stripe_response)) {
             $row_data[] = modal_anchor(get_uri("orders/view_invoices?order_id=".($data->id)), "View Invoice", array("class" => "edit btn btn-success", "title" => "View Invoices"));
         } else {
@@ -1784,6 +1800,76 @@ class Orders extends Security_Controller {
         }
     }
 
+    function renew_checkout() {
+        $this->check_access_to_store();
+
+        $order_id = $this->request->getPost('order_id');
+        validate_numeric_value($order_id);
+
+        $order = $this->Orders_model->get_one($order_id);
+
+        if (empty($order)) {
+            echo json_encode(array("success" => false, 'message' => 'Order not found'));
+            exit;
+        }
+
+        //security: client apna khud ka hi order renew kar sake
+        if ($this->login_user->user_type == 'client' && $order->client_id != $this->login_user->client_id) {
+            echo json_encode(array("success" => false, 'message' => 'Access denied'));
+            exit;
+        }
+
+        if ($order->plan_status != 'expired') {
+            echo json_encode(array("success" => false, 'message' => 'This order is not expired, cannot renew'));
+            exit;
+        }
+
+        //is order ka item nikalo (ek order = ek item, existing convention)
+        $order_items = $this->Order_items_model->get_all_where(array("order_id" => $order_id, "deleted" => 0))->getResult();
+        if (empty($order_items)) {
+            echo json_encode(array("success" => false, 'message' => 'No item found for this order'));
+            exit;
+        }
+
+        $item = $this->Items_model->get_one($order_items[0]->item_id);
+        if (empty($item)) {
+            echo json_encode(array("success" => false, 'message' => 'Item not found'));
+            exit;
+        }
+
+        //agar stripe price id missing hai to bana lo, place_order() jaisa hi pattern
+        if (empty($item->stripe_product_id) || empty($item->stripe_price_id)) {
+            $getProductandPriceid = $this->_checkProductExistsByNameAndPrice($item);
+            if (!empty($getProductandPriceid)) {
+                $this->Items_model->update_where(array('stripe_product_id' => $getProductandPriceid['productID'], 'stripe_price_id' => $getProductandPriceid['priceID']), array('id' => $item->id));
+                $item = $this->Items_model->get_one($item->id);
+            }
+        }
+
+        echo json_encode(array("success" => true, "order_id" => $order_id, 'products' => array($item)));
+        exit;
+    }
+
+    function renew_success_page(){
+        $order_id = $_GET['order_id'];
+        validate_numeric_value($order_id);
+
+        $order = $this->Orders_model->get_one($order_id);
+
+        if (empty($order)) {
+            return $this->template->rander("/orders/error_page");
+        }
+
+        //asli renewal — existing order ko hi update karo
+        $update_data = array(
+            "order_date" => date('Y-m-d H:i:s'),
+            "plan_status" => "active"
+        );
+        $this->Orders_model->ci_save($update_data, $order_id);
+
+        $view_data = array("order_id" => $order_id);
+        return $this->template->rander("/orders/renew_success_page", $view_data);
+    }
 }
 
 /* End of file orders.php */

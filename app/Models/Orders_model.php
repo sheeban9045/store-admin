@@ -353,6 +353,10 @@ class Orders_model extends Crud_model {
         $orders_table = $this->db->prefixTable('orders');
         $order_items_table = $this->db->prefixTable('order_items');
         $items_table = $this->db->prefixTable('items');
+        $limit = (int) get_setting("limit");
+        if (empty($limit)) {
+            return false;
+        }
 
         $sql = "UPDATE $orders_table o
             INNER JOIN $order_items_table oi ON oi.order_id = o.id AND oi.deleted = 0
@@ -361,7 +365,7 @@ class Orders_model extends Crud_model {
             WHERE i.type = 'monthly'
             AND o.deleted = 0
             AND o.plan_status != 'expired'
-            AND o.order_date <= DATE_SUB(NOW(), INTERVAL 1 MONTH)";
+            AND o.order_date <= DATE_SUB(NOW(), INTERVAL $limit MONTH)";
 
         return $this->db->query($sql);
     }
