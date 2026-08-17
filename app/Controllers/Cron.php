@@ -29,14 +29,15 @@ class Cron extends App_Controller {
 
     
     public function expire_overdue_monthly_plans() {
+        $today = get_today_date();
         $expiry_check_last_run_date = get_setting("expiry_check_last_run_date");
-        if (!($expiry_check_last_run_date == "" || ($expiry_check_last_run_date != $this->today))) {
+        if (!($expiry_check_last_run_date == "" || ($expiry_check_last_run_date != $today))) {
             return false;
         }
 
-        $this->ci->Orders_model->expire_overdue_monthly_plans();
+        $this->Orders_model->expire_overdue_monthly_plans();
 
-        $this->ci->Settings_model->save_setting("expiry_check_last_run_date", $this->today);
+        $this->Settings_model->save_setting("expiry_check_last_run_date", $today);
     }
 
 }
