@@ -110,7 +110,7 @@
                         if (product.stripe_price_id) {
                             stripe.redirectToCheckout({
                                 lineItems: [{ price: product.stripe_price_id, quantity: 1 }],
-                                mode: 'payment',
+                                mode: 'subscription',
                                 successUrl: 'http://webhut.net/store-admin/index.php/orders/renew_success_page?order_id=' + response.order_id + '&session_id={CHECKOUT_SESSION_ID}',
                                 cancelUrl: 'http://webhut.net/store-admin/index.php/orders/error_page?order_id=' + response.order_id + '&session_id={CHECKOUT_SESSION_ID}',
                             });
