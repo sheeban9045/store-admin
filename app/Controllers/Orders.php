@@ -1813,7 +1813,6 @@ class Orders extends Security_Controller {
             exit;
         }
 
-        //security: client apna khud ka hi order renew kar sake
         if ($this->login_user->user_type == 'client' && $order->client_id != $this->login_user->client_id) {
             echo json_encode(array("success" => false, 'message' => 'Access denied'));
             exit;
@@ -1824,7 +1823,6 @@ class Orders extends Security_Controller {
             exit;
         }
 
-        //is order ka item nikalo (ek order = ek item, existing convention)
         $order_items = $this->Order_items_model->get_all_where(array("order_id" => $order_id, "deleted" => 0))->getResult();
         if (empty($order_items)) {
             echo json_encode(array("success" => false, 'message' => 'No item found for this order'));
@@ -1837,7 +1835,6 @@ class Orders extends Security_Controller {
             exit;
         }
 
-        //agar stripe price id missing hai to bana lo, place_order() jaisa hi pattern
         if (empty($item->stripe_product_id) || empty($item->stripe_price_id)) {
             $getProductandPriceid = $this->_checkProductExistsByNameAndPrice($item);
             if (!empty($getProductandPriceid)) {
@@ -1860,7 +1857,6 @@ class Orders extends Security_Controller {
             return $this->template->rander("/orders/error_page");
         }
 
-        //asli renewal — existing order ko hi update karo
         $update_data = array(
             "order_date" => date('Y-m-d H:i:s'),
             "plan_status" => "active"
