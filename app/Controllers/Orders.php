@@ -2,10 +2,7 @@
 
 namespace App\Controllers;
 use ZipArchive;
-// require('/var/www/html/stripe/init.php');
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-ini_set('display_startup_errors', 1);
+require('/var/www/html/stripe/init.php');
 
 class Orders extends Security_Controller {
 
