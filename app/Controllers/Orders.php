@@ -1192,16 +1192,20 @@ class Orders extends Security_Controller {
         }
 
         //Renew button 
-        if (isset($data->plan_status) && $data->plan_status == 'expired') {
-            $row_data[] = js_anchor("Renew", array(
-                "class" => "btn btn-danger btn-sm",
-                "title" => "Renew this plan",
-                "data-id" => $data->id,
-                "data-act" => "renew-order"
-            ));
-        } else {
+        if ($this->login_user->user_type == "staff") {
             $row_data[] = "-";
-        }
+        } else {
+            if (isset($data->plan_status) && $data->plan_status == 'expired') {
+                $row_data[] = js_anchor("Renew", array(
+                    "class" => "btn btn-danger btn-sm",
+                    "title" => "Renew this plan",
+                    "data-id" => $data->id,
+                    "data-act" => "renew-order"
+                ));
+            } else {
+                $row_data[] = "-";
+            }
+        }        
 
         if(!empty($data->stripe_response)) {
             $row_data[] = modal_anchor(get_uri("orders/view_invoices?order_id=".($data->id)), "View Invoice", array("class" => "edit btn btn-success", "title" => "View Invoices"));

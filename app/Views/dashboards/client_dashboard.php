@@ -177,17 +177,18 @@
 
                                <span class="counter-value">Validity: <strong>
                                    <?php 
-                                        $originalDate = (isset($recent_order) && !empty($recent_order))? $recent_order[0]->order_date:'';
+                                        // $originalDate = (isset($recent_order) && !empty($recent_order))? $recent_order[0]->order_date:'';
 
-                                        // Convert the original date to a Unix timestamp
-                                        $timestamp = strtotime($originalDate);
+                                        // // Convert the original date to a Unix timestamp
+                                        // $timestamp = strtotime($originalDate);
 
-                                        // Calculate the date one month in advance
-                                        $oneMonthLater = date("Y-m-d", strtotime("+1 month", $timestamp));
-                                        echo explode(' ', $originalDate)[0]." To ".$oneMonthLater;
+                                        // // Calculate the date one month in advance
+                                        // $oneMonthLater = date("Y-m-d", strtotime("+1 month", $timestamp));
+                                        // echo explode(' ', $originalDate)[0]." To ".$oneMonthLater;
+                                        echo $originalDate." To ". $futureDate;
                                    ?>
                                </strong></span>
-                                <p class="text-warning mb-0"><i class="bi bi-arrow-up me-1">Due Date: </i><?php echo $oneMonthLater?></p>
+                                <p class="text-warning mb-0"><i class="bi bi-arrow-up me-1">Due Date: </i><?php echo $futureDate?></p>
                                 <span>You have to pay 
                                     $<?php echo (isset($stripeResponse->amount_total) && !empty($stripeResponse->amount_total))?( $stripeResponse->amount_total )/100:0; ?>        
                                 </span>

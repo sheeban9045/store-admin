@@ -67,7 +67,7 @@ class Dashboard extends Security_Controller {
                 $view_data["custom_field_filters"] = $this->Custom_fields_model->get_custom_field_filters("projects", $this->login_user->is_admin, $this->login_user->user_type);
 
                 // Harsh's code for dynamic dashboard
-                $view_data["recent_order"] = ($this->Orders_model->recent_order($client_id)->getResult());
+                $view_data["recent_order"] = $recent_order = ($this->Orders_model->recent_order($client_id)->getResult());
                 $order_id = (isset($view_data["recent_order"]) && !empty($view_data["recent_order"]))?$view_data["recent_order"][0]->id:0;
                 $order_detail =  $this->Orders_model->get_one($order_id);
                 $user_detail = $this->Users_model ->get_one($order_detail->client_id);
@@ -85,6 +85,14 @@ class Dashboard extends Security_Controller {
                     }
                     
                 }
+
+                $originalDate = (isset($recent_order) && !empty($recent_order))? $recent_order[0]->order_date:'';
+                $limit = get_setting("limit");
+                $futureDate=date('Y-m-d', strtotime("+$limit months", strtotime($originalDate)));
+
+                $view_data['originalDate'] = format_to_date($originalDate, false);
+                $view_data['futureDate'] = format_to_date($futureDate);
+                
                 //Harsh's Code for dashboard ends here.
                 echo $this->template->rander("dashboards/client_dashboard", $view_data);
             }
