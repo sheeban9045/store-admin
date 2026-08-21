@@ -74,6 +74,20 @@
 
             <div class="form-group">
                 <div class="row">
+                    <label for="plan_status" class="col-md-3"><?php echo app_lang('plan_status'); ?></label>
+                    <div class="col-md-9">
+                        <?php
+                        $plan_status['active'] = "Active";
+                        $plan_status['expired'] = "Expired";
+
+                        echo form_dropdown("plan_status", $plan_status, array($model_info->plan_status), "class='select2'");
+                        ?>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div class="row">
                     <label for="tax_id" class=" col-md-3"><?php echo app_lang('tax'); ?></label>
                     <div class="col-md-9">
                         <?php

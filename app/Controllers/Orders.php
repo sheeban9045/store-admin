@@ -1191,6 +1191,14 @@ class Orders extends Security_Controller {
             $row_data[] = $download_btn . $email_btn;
         }
 
+        //Plan Status
+        if( isset($data->plan_status) && $data->plan_status == 'expired') {
+            $row_data[] = "<span class='badge bg-danger'>Expired</span>";
+        } else {
+            $row_data[] = "<span class='badge bg-success'>Active</span>";
+        }
+
+
         //Renew button 
         if ($this->login_user->user_type == "staff") {
             $row_data[] = "-";
@@ -1328,7 +1336,8 @@ class Orders extends Security_Controller {
             "id" => "numeric",
             "order_client_id" => "required|numeric",
             "order_date" => "required",
-            "status_id" => "required"
+            "status_id" => "required",
+            "plan_status" => "required",
         ));
 
         $client_id = $this->request->getPost('order_client_id');
@@ -1346,6 +1355,7 @@ class Orders extends Security_Controller {
             "company_id" => $this->request->getPost('company_id') ? $this->request->getPost('company_id') : get_default_company_id(),
             "note" => $this->request->getPost('order_note'),
             "status_id" => $this->request->getPost('status_id'),
+            "plan_status" => $this->request->getPost('plan_status'),
               "domain_name" => $this->request->getPost('domain_name')
             
         );
