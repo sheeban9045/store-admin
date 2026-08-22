@@ -49,6 +49,7 @@
                 <?php echo $custom_field_headers; ?>,
                 // {title: '<i data-feather="menu" class="icon-16"></i>', "class": "text-center option w100"},
                 {title: 'Community', "class": "text-center  w100"},
+                {title: 'Plan Status', "class": "text-center  w100"},
                 {title: 'Renew', "class": "text-center w100"},
                 {title: 'View Invoices', "class": "text-center  w100"}
 

@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="<?php echo base_url("assets/css/toastr.css"); ?>" />
+    <script src = "<?php echo base_url("assets/js/toastr/toastr.js"); ?>"></script>
     <title></title>
     <style>
         .badge {
@@ -177,17 +179,18 @@
 
                                <span class="counter-value">Validity: <strong>
                                    <?php 
-                                        $originalDate = (isset($recent_order) && !empty($recent_order))? $recent_order[0]->order_date:'';
+                                        // $originalDate = (isset($recent_order) && !empty($recent_order))? $recent_order[0]->order_date:'';
 
-                                        // Convert the original date to a Unix timestamp
-                                        $timestamp = strtotime($originalDate);
+                                        // // Convert the original date to a Unix timestamp
+                                        // $timestamp = strtotime($originalDate);
 
-                                        // Calculate the date one month in advance
-                                        $oneMonthLater = date("Y-m-d", strtotime("+1 month", $timestamp));
-                                        echo explode(' ', $originalDate)[0]." To ".$oneMonthLater;
+                                        // // Calculate the date one month in advance
+                                        // $oneMonthLater = date("Y-m-d", strtotime("+1 month", $timestamp));
+                                        // echo explode(' ', $originalDate)[0]." To ".$oneMonthLater;
+                                        echo $originalDate." To ". $futureDate;
                                    ?>
                                </strong></span>
-                                <p class="text-warning mb-0"><i class="bi bi-arrow-up me-1">Due Date: </i><?php echo $oneMonthLater?></p>
+                                <p class="text-warning mb-0"><i class="bi bi-arrow-up me-1">Due Date: </i><?php echo $futureDate?></p>
                                 <span>You have to pay 
                                     $<?php echo (isset($stripeResponse->amount_total) && !empty($stripeResponse->amount_total))?( $stripeResponse->amount_total )/100:0; ?>        
                                 </span>
@@ -207,12 +210,19 @@
                             <div class="col-lg-8">
                                 <h6 class="alert alert-info rounded-pill text-center mx-auto" role="alert"><strong><?php echo $plan_detail->title; ?></strong></h6>
                             </div>
-                            <div class="col-lg-6">
+                            <div class="col-lg-12">
                                 <br>
                                 <span> Plan Price: <strong>
                                     $<?php  echo (isset($stripeResponse->amount_total) && !empty($stripeResponse->amount_total))?( $stripeResponse->amount_total )/100:0; ?>
                                 </strong></span>
-                                <br><br>
+                                <!-- <br><br> -->
+                                <?php if(isset($plan_status) && $plan_status == "expired"){
+                                    $margin = "margin-top: 0;";
+                                    ?>
+                                    <p class="counter-value"><strong>Your plan has expired.</strong></p>
+                                <?php }else { $margin = "margin-top: 3%;";?>
+                                    <br><br>
+                                <?php } ?>
                                 <a href="
                                     <?php
                                         if (!$_SERVER['HTTP_HOST'] !== 'localhost') {
@@ -224,7 +234,11 @@
                                         }
                                         echo $baseURL."/pricing.php";
                                     ?>" 
-                                     class="btn btn-primary" style="margin-bottom: 5%;">Change Plan</a>
+                                     class="btn btn-primary" style="<?php echo $margin; ?>">Change Plan</a>
+                                    
+                                <?php if(isset($plan_status) && $plan_status == "expired"){ ?>
+                                    <span class="btn btn-danger" style="<?php echo $margin; ?>" data-act="renew-order" data-id="<?php echo $recent_order[0]->id; ?>" title="Renew this plan">Renew</span>
+                                <?php } ?>
                             </div>
                         </div>
                     </div>
@@ -407,6 +421,49 @@
                     document.getElementById(id).style.display = 'none';
                 }
             }
+        });
+    </script>
+
+    
+    <script src="https://js.stripe.com/v3/"></script>
+    <script>
+        const stripe = Stripe("<?php echo $payment_setting->publishable_key; ?>");
+
+        $(document).on('click', '[data-act="renew-order"]', function () {
+            var order_id = $(this).attr('data-id');
+
+            if (!confirm("Are you sure you want to renew this plan?")) {
+                return;
+            }
+
+            appLoader.show();
+            $.ajax({
+                url: '<?php echo_uri("orders/renew_checkout") ?>',
+                type: 'POST',
+                dataType: 'json',
+                data: { order_id: order_id },
+                success: function (response) {
+                    appLoader.hide();
+                    if (response.success) {
+                        response.products.forEach(function (product) {
+                            if (product.stripe_price_id) {
+                                stripe.redirectToCheckout({
+                                    lineItems: [{ price: product.stripe_price_id, quantity: 1 }],
+                                    mode: 'subscription',
+                                    successUrl: 'http://webhut.net/store-admin/index.php/orders/renew_success_page?order_id=' + response.order_id + '&session_id={CHECKOUT_SESSION_ID}',
+                                    cancelUrl: 'http://webhut.net/store-admin/index.php/orders/error_page?order_id=' + response.order_id + '&session_id={CHECKOUT_SESSION_ID}',
+                                });
+                            }
+                        });
+                    } else {
+                        toastr.error(response.message);
+                    }
+                },
+                error: function () {
+                    appLoader.hide();
+                    toastr.error("Something went wrong!");
+                }
+            });
         });
     </script>
 

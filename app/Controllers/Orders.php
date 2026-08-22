@@ -1191,17 +1191,29 @@ class Orders extends Security_Controller {
             $row_data[] = $download_btn . $email_btn;
         }
 
-        //Renew button 
-        if (isset($data->plan_status) && $data->plan_status == 'expired') {
-            $row_data[] = js_anchor("Renew", array(
-                "class" => "btn btn-danger btn-sm",
-                "title" => "Renew this plan",
-                "data-id" => $data->id,
-                "data-act" => "renew-order"
-            ));
+        //Plan Status
+        if( isset($data->plan_status) && $data->plan_status == 'expired') {
+            $row_data[] = "<span class='badge bg-danger'>Expired</span>";
         } else {
-            $row_data[] = "-";
+            $row_data[] = "<span class='badge bg-success'>Active</span>";
         }
+
+
+        //Renew button 
+        if ($this->login_user->user_type == "staff") {
+            $row_data[] = "-";
+        } else {
+            if (isset($data->plan_status) && $data->plan_status == 'expired') {
+                $row_data[] = js_anchor("Renew", array(
+                    "class" => "btn btn-danger btn-sm",
+                    "title" => "Renew this plan",
+                    "data-id" => $data->id,
+                    "data-act" => "renew-order"
+                ));
+            } else {
+                $row_data[] = "-";
+            }
+        }        
 
         if(!empty($data->stripe_response)) {
             $row_data[] = modal_anchor(get_uri("orders/view_invoices?order_id=".($data->id)), "View Invoice", array("class" => "edit btn btn-success", "title" => "View Invoices"));
@@ -1324,7 +1336,8 @@ class Orders extends Security_Controller {
             "id" => "numeric",
             "order_client_id" => "required|numeric",
             "order_date" => "required",
-            "status_id" => "required"
+            "status_id" => "required",
+            "plan_status" => "required",
         ));
 
         $client_id = $this->request->getPost('order_client_id');
@@ -1342,6 +1355,7 @@ class Orders extends Security_Controller {
             "company_id" => $this->request->getPost('company_id') ? $this->request->getPost('company_id') : get_default_company_id(),
             "note" => $this->request->getPost('order_note'),
             "status_id" => $this->request->getPost('status_id'),
+            "plan_status" => $this->request->getPost('plan_status'),
               "domain_name" => $this->request->getPost('domain_name')
             
         );
