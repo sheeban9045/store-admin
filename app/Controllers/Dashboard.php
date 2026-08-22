@@ -92,6 +92,11 @@ class Dashboard extends Security_Controller {
 
                 $view_data['originalDate'] = format_to_date($originalDate, false);
                 $view_data['futureDate'] = format_to_date($futureDate);
+
+                $view_data["plan_status"] = $recent_order[0]->plan_status ?? '';
+                
+                $stripePaymentMethod = $this->Payment_methods_model->get_oneline_payment_method('stripe');
+                $view_data['payment_setting'] = $this->Payment_methods_model->get_one_with_settings($stripePaymentMethod->id);
                 
                 //Harsh's Code for dashboard ends here.
                 echo $this->template->rander("dashboards/client_dashboard", $view_data);
