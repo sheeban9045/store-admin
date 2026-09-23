@@ -481,6 +481,8 @@ class Left_menu {
                 );
             }
 
+            $sidebar_menu["forum"] = $this->_get_forum_menu();
+
 
 
             if ($this->ci->login_user->is_admin || get_array_value($this->ci->login_user->permissions, "can_manage_all_kinds_of_settings")) {
@@ -554,10 +556,30 @@ class Left_menu {
                 $sidebar_menu[] = array("name" => "knowledge_base", "url" => "knowledge_base", "class" => "help-circle");
             }
 
+            $sidebar_menu[] = $this->_get_forum_menu(true);
+
             $sidebar_menu = app_hooks()->apply_filters('app_filter_client_left_menu', $sidebar_menu);
         }
 
         return $this->position_items_for_default_left_menu($sidebar_menu);
+    }
+
+    //the same menu names are used for admin and other users (the saved default menus are shared), only the urls are different
+    private function _get_forum_menu($is_client_menu = false) {
+        $forum_submenu = array(
+            array("name" => "forum_home", "url" => "forum", "class" => "message-square")
+        );
+
+        if ($this->ci->login_user->is_admin && !$is_client_menu) {
+            $forum_submenu[] = array("name" => "forum_categories", "url" => "forum_categories", "class" => "list");
+            $forum_submenu[] = array("name" => "forum_topics", "url" => "forum_topics", "class" => "file-text");
+            $forum_submenu[] = array("name" => "forum_replies", "url" => "forum_replies", "class" => "message-circle");
+        } else {
+            $forum_submenu[] = array("name" => "forum_topics", "url" => "forum_topics/my_topics", "class" => "file-text");
+            $forum_submenu[] = array("name" => "forum_replies", "url" => "forum_replies/my_replies", "class" => "message-circle");
+        }
+
+        return array("name" => "forum", "url" => "forum", "class" => "message-square", "submenu" => $forum_submenu);
     }
 
     //position items for plugins
