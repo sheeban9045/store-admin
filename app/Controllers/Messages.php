@@ -10,7 +10,11 @@ class Messages extends Security_Controller {
     }
 
     private function is_my_message($message_info) {
-        if ($message_info->from_user_id == $this->login_user->id || $message_info->to_user_id == $this->login_user->id) {
+        if (
+            $message_info->type === "enquiry"
+            || $message_info->from_user_id == $this->login_user->id
+            || $message_info->to_user_id == $this->login_user->id
+        ) {
             return true;
         }
     }
@@ -261,13 +265,17 @@ class Messages extends Security_Controller {
         if ($message_info->id) {
             //check, where we have to send this message
             $to_user_id = 0;
-            if ($message_info->from_user_id === $this->login_user->id) {
-                $to_user_id = $message_info->to_user_id;
+            if ($message_info->type === "enquiry") {
+                $to_user_id = 0;
             } else {
-                $to_user_id = $message_info->from_user_id;
-            }
+                if ($message_info->from_user_id === $this->login_user->id) {
+                    $to_user_id = $message_info->to_user_id;
+                } else {
+                    $to_user_id = $message_info->from_user_id;
+                }
 
-            $this->check_validate_sending_message($to_user_id);
+                $this->check_validate_sending_message($to_user_id);
+            }
 
             $target_path = get_setting("timeline_file_path");
             $files_data = move_files_from_temp_dir_to_permanent_dir($target_path, "message");
@@ -353,7 +361,22 @@ class Messages extends Security_Controller {
             "active_message_id" => "numeric"
         ));
 
-        $notifiations = $this->Messages_model->count_notifications($this->login_user->id, $this->login_user->message_checked_at, $this->request->getPost("active_message_id"), $this->get_allowed_user_ids());
+        // echo "<pre>";
+        //     print_r(array(
+        //         "user_id" => $this->login_user->id,
+        //         "message_checked_at" => $this->login_user->message_checked_at,
+        //         "active_message_id" => $this->request->getPost("active_message_id"),
+        //         "allowed_user_ids" => $this->get_allowed_user_ids()
+        //     ));
+        //     echo "</pre>";
+        // die;
+        $notifiations = $this->Messages_model->count_notifications(
+            $this->login_user->id, 
+            $this->login_user->message_checked_at, 
+            $this->request->getPost("active_message_id"), 
+            $this->get_allowed_user_ids()
+        );
+        // echo $notifiations;die;
         echo json_encode(array("success" => true, "active_message_id" => $this->request->getPost("active_message_id"), 'total_notifications' => $notifiations));
     }
 
