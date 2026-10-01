@@ -221,11 +221,14 @@ class Messages extends Security_Controller {
         $target_path = get_setting("timeline_file_path");
         $files_data = move_files_from_temp_dir_to_permanent_dir($target_path, "message");
 
+        $subject = $this->request->getPost('subject');
+        $message = $this->request->getPost('message');
+
         $message_data = array(
             "from_user_id" => $this->login_user->id,
             "to_user_id" => $to_user_id,
-            "subject" => $this->request->getPost('subject'),
-            "message" => $this->request->getPost('message'),
+            "subject" => $subject,
+            "message" => $message,
             "created_at" => get_current_utc_time(),
             "deleted_by_users" => "",
         );
@@ -237,8 +240,44 @@ class Messages extends Security_Controller {
         $save_id = $this->Messages_model->ci_save($message_data);
 
         if ($save_id) {
+            $recipient = $this->Users_model->get_one($to_user_id);
+
+            if ($recipient && $recipient->email) {
+
+                $email_subject = $subject ? $subject : "Message from WebHut";
+
+                $email_message_id = '<message-' . $save_id . '@webhut>';
+
+                $email_message = $message;
+
+                $email_sent = send_app_mail(
+                    $recipient->email,
+                    $email_subject,
+                    $email_message,
+                    array(
+                        "message_id" => $email_message_id
+                    )
+                );
+
+                if ($email_sent) {
+                    $email_data = array(
+                        "email_message_id" => $email_message_id
+                    );
+    
+                    $this->Messages_model->ci_save(
+                        $email_data,
+                        $save_id
+                    );
+                }
+            }
+
             log_notification("new_message_sent", array("actual_message_id" => $save_id));
-            echo json_encode(array("success" => true, 'message' => app_lang('message_sent'), "id" => $save_id));
+
+            echo json_encode(array(
+                "success" => true,
+                "message" => app_lang('message_sent'),
+                "id" => $save_id
+            ));
         } else {
             echo json_encode(array("success" => false, 'message' => app_lang('error_occurred')));
         }
@@ -299,6 +338,55 @@ class Messages extends Security_Controller {
             $save_id = $this->Messages_model->ci_save($message_data);
 
             if ($save_id) {
+
+                $recipient_email = "";
+
+                if ($message_info->type === "enquiry") {
+                    // Contact form enquiry
+                    $recipient_email = $message_info->email;
+                } else {
+                    // Normal internal message
+                    $recipient = $this->Users_model->get_one($to_user_id);
+
+                    if ($recipient) {
+                        $recipient_email = $recipient->email;
+                    }
+                }
+
+                if ($recipient_email) {
+
+                    $email_subject = $message_info->subject
+                        ? $message_info->subject
+                        : "Message from WebHut";
+
+                    // Add Re: only once
+                    if (stripos(trim($email_subject), "Re:") !== 0) {
+                        $email_subject = "Re: " . $email_subject;
+                    }
+
+                    $email_message_id = '<reply-' . $save_id . '@webhut>';
+
+                    $email_sent = send_app_mail(
+                        $recipient_email,
+                        $email_subject,
+                        $message,
+                        array(
+                            "message_id" => $email_message_id,
+                            "in_reply_to" => $message_info->email_message_id
+                        )
+                    );
+
+                    if ($email_sent) {
+                        $email_data = array(
+                            "email_message_id" => $email_message_id
+                        );
+
+                        $this->Messages_model->ci_save(
+                            $email_data,
+                            $save_id
+                        );
+                    }
+                }
 
                 //if chat via pusher is enabled, then send message data to pusher
                 if (get_setting('enable_chat_via_pusher') && get_setting("enable_push_notification")) {
