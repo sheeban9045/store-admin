@@ -34,7 +34,11 @@ class Messages_model extends Crud_model {
 
         $user_id = get_array_value($options, "user_id");
         if ($user_id) {
-            $where .= " AND ($messages_table.from_user_id=$user_id OR $messages_table.to_user_id=$user_id) ";
+            $where .= " AND (
+                $messages_table.from_user_id=$user_id
+                OR $messages_table.to_user_id=$user_id
+                OR $messages_table.type='enquiry'
+            ) ";
         }
 
 
@@ -66,7 +70,7 @@ class Messages_model extends Crud_model {
         $offset = get_array_value($options, "offset");
         $offset = $offset ? $offset : "0";
 
-        $sql = "SELECT * FROM (SELECT 0 AS reply_message_id, $messages_table.*, CONCAT($users_table.first_name, ' ', $users_table.last_name) AS user_name, $users_table.image AS user_image, $users_table.user_type, CONCAT(another_user.first_name, ' ', another_user.last_name) AS another_user_name, another_user.id AS another_user_id, another_user.last_online AS another_user_last_online
+        $sql = "SELECT * FROM (SELECT 0 AS reply_message_id, $messages_table.*, CASE WHEN $messages_table.type='enquiry' THEN $messages_table.name ELSE CONCAT($users_table.first_name, ' ', $users_table.last_name) END AS user_name, $users_table.image AS user_image, $users_table.user_type, CONCAT(another_user.first_name, ' ', another_user.last_name) AS another_user_name, another_user.id AS another_user_id, another_user.last_online AS another_user_last_online
         FROM $messages_table
         LEFT JOIN $users_table ON $users_table.id=$join_with
         LEFT JOIN $users_table AS another_user ON another_user.id=$join_another
@@ -91,6 +95,50 @@ class Messages_model extends Crud_model {
      * prepare inbox/sent items list
      */
 
+    // function get_list($options = array()) {
+    //     $messages_table = $this->db->prefixTable('messages');
+    //     $users_table = $this->db->prefixTable('users');
+
+    //     $mode = get_array_value($options, "mode");
+    //     $user_id = get_array_value($options, "user_id");
+
+    //     if ($user_id && $mode === "inbox") {
+    //         $where_user = "to_user_id";
+    //         $select_user = "from_user_id";
+    //     } else if ($user_id && $mode === "sent_items") {
+    //         $where_user = "from_user_id";
+    //         $select_user = "to_user_id";
+    //     }
+
+    //     $where = "";
+    //     $user_ids = get_array_value($options, "user_ids");
+    //     if ($user_ids) {
+    //         $where .= " AND $messages_table.$select_user IN($user_ids)";
+    //     }
+
+    //     $notification_sql = "";
+    //     $is_notification = get_array_value($options, "is_notification");
+    //     if ($is_notification) {
+    //         $notification_sql = " ORDER BY timestamp($messages_table.created_at) DESC LIMIT 10 ";
+    //     }
+
+    //     //ignor sql mode here 
+    //     $this->db->query("SET sql_mode = ''");
+
+    //     $sql = "SELECT  y.*, $messages_table.status, $messages_table.created_at, $messages_table.files,
+    //             CONCAT($users_table.first_name, ' ', $users_table.last_name) AS user_name, $users_table.image AS user_image, $users_table.last_online
+    //             FROM (
+    //                 SELECT max(x.id) as id, main_message_id,  subject, IF(subject='', (SELECT subject FROM $messages_table WHERE id=main_message_id) ,'') as reply_subject, $select_user
+    //                     FROM (SELECT id, IF(message_id=0,id,message_id) as main_message_id, subject, $select_user 
+    //                             FROM $messages_table
+    //                           WHERE deleted=0 AND $where_user=$user_id $where AND FIND_IN_SET($user_id, $messages_table.deleted_by_users) = 0) x
+    //                 GROUP BY main_message_id) y
+    //             LEFT JOIN $users_table ON $users_table.id= y.$select_user
+    //             LEFT JOIN $messages_table ON $messages_table.id= y.id $notification_sql";
+
+    //     return $this->db->query($sql);
+    // }
+
     function get_list($options = array()) {
         $messages_table = $this->db->prefixTable('messages');
         $users_table = $this->db->prefixTable('users');
@@ -108,32 +156,146 @@ class Messages_model extends Crud_model {
 
         $where = "";
         $user_ids = get_array_value($options, "user_ids");
+
         if ($user_ids) {
-            $where .= " AND $messages_table.$select_user IN($user_ids)";
+            if ($mode === "inbox") {
+                $where .= " AND (
+                    $messages_table.$select_user IN($user_ids)
+                    OR $messages_table.type='enquiry'
+                )";
+            } else {
+                $where .= " AND $messages_table.$select_user IN($user_ids)";
+            }
         }
 
         $notification_sql = "";
         $is_notification = get_array_value($options, "is_notification");
+
         if ($is_notification) {
             $notification_sql = " ORDER BY timestamp($messages_table.created_at) DESC LIMIT 10 ";
         }
 
-        //ignor sql mode here 
+        // ignore sql mode here
         $this->db->query("SET sql_mode = ''");
 
-        $sql = "SELECT  y.*, $messages_table.status, $messages_table.created_at, $messages_table.files,
-                CONCAT($users_table.first_name, ' ', $users_table.last_name) AS user_name, $users_table.image AS user_image, $users_table.last_online
+        /*
+        * Enquiry:
+        * - type = enquiry
+        * - from_user_id = 0
+        * - to_user_id = 0
+        *
+        * So enquiry is allowed in inbox separately.
+        */
+        if ($mode === "inbox") {
+            $message_user_condition = "(
+                $where_user=$user_id
+                OR $messages_table.type='enquiry'
+            )";
+        } else {
+            $message_user_condition = "$where_user=$user_id";
+        }
+
+        $sql = "SELECT
+                    y.*,
+                    $messages_table.status,
+                    $messages_table.created_at,
+                    $messages_table.files,
+
+                    CASE
+                        WHEN $messages_table.type='enquiry'
+                        THEN $messages_table.name
+                        ELSE CONCAT(
+                            $users_table.first_name,
+                            ' ',
+                            $users_table.last_name
+                        )
+                    END AS user_name,
+
+                    $users_table.image AS user_image,
+                    $users_table.last_online
+
                 FROM (
-                    SELECT max(x.id) as id, main_message_id,  subject, IF(subject='', (SELECT subject FROM $messages_table WHERE id=main_message_id) ,'') as reply_subject, $select_user
-                        FROM (SELECT id, IF(message_id=0,id,message_id) as main_message_id, subject, $select_user 
+                    SELECT
+                        max(x.id) as id,
+                        main_message_id,
+                        subject,
+                        IF(
+                            subject='',
+                            (
+                                SELECT subject
                                 FROM $messages_table
-                              WHERE deleted=0 AND $where_user=$user_id $where AND FIND_IN_SET($user_id, $messages_table.deleted_by_users) = 0) x
-                    GROUP BY main_message_id) y
-                LEFT JOIN $users_table ON $users_table.id= y.$select_user
-                LEFT JOIN $messages_table ON $messages_table.id= y.id $notification_sql";
+                                WHERE id=main_message_id
+                            ),
+                            ''
+                        ) as reply_subject,
+                        $select_user
+
+                    FROM (
+                        SELECT
+                            id,
+                            IF(message_id=0,id,message_id) as main_message_id,
+                            subject,
+                            $select_user
+
+                        FROM $messages_table
+
+                        WHERE deleted=0
+                        AND $message_user_condition
+                        $where
+                        AND FIND_IN_SET(
+                            $user_id,
+                            $messages_table.deleted_by_users
+                        ) = 0
+
+                    ) x
+
+                    GROUP BY main_message_id
+                ) y
+
+                LEFT JOIN $users_table
+                    ON $users_table.id = y.$select_user
+
+                LEFT JOIN $messages_table
+                    ON $messages_table.id = y.id
+
+                $notification_sql";
 
         return $this->db->query($sql);
     }
+
+    // function get_chat_list($options = array()) {
+
+    //     $messages_table = $this->db->prefixTable('messages');
+    //     $users_table = $this->db->prefixTable('users');
+
+    //     $login_user_id = get_array_value($options, "login_user_id");
+
+    //     $where = "";
+    //     $user_id = get_array_value($options, "user_id");
+    //     if ($user_id) {
+    //         $where .= " AND ($messages_table.to_user_id=$user_id OR $messages_table.from_user_id=$user_id) ";
+    //     }
+
+    //     $user_ids = get_array_value($options, "user_ids");
+    //     if ($user_ids) {
+    //         $where .= " AND ($messages_table.to_user_id IN($user_ids) OR $messages_table.from_user_id IN($user_ids))";
+    //     }
+
+    //     $this->db->query("SET sql_mode = ''"); //ignor sql mode here
+
+    //     $sql = "SELECT $messages_table.id, $messages_table.subject, $messages_table.from_user_id, IF(another_m.mex_created_at, another_m.mex_created_at, $messages_table.created_at) AS message_time, 
+    //             IF(another_m.status, another_m.status, $messages_table.status) AS status, (SELECT from_user_id FROM $messages_table WHERE $messages_table.id=another_m.max_id) AS last_from_user_id,
+    //             CONCAT($users_table.first_name, ' ', $users_table.last_name) AS user_name, $users_table.image AS user_image, $users_table.last_online
+    //             FROM $messages_table
+    //             LEFT JOIN (SELECT MAX(id) as max_id, MAX(message_id) as mex_message_id, MAX(created_at) as mex_created_at, MAX(status) as status FROM $messages_table WHERE deleted=0 and  message_id!=0 GROUP BY message_id) AS another_m ON $messages_table.id=another_m.mex_message_id
+    //             LEFT JOIN $users_table ON ($users_table.id=$messages_table.from_user_id OR $users_table.id=$messages_table.to_user_id) AND $users_table.id != $login_user_id
+    //             WHERE $messages_table.deleted=0 AND $messages_table.message_id=0 $where AND
+    //             FIND_IN_SET($login_user_id, $messages_table.deleted_by_users) = 0 AND ($messages_table.from_user_id=$login_user_id OR $messages_table.to_user_id=$login_user_id)
+    //             GROUP BY id
+    //             ORDER BY message_time DESC LIMIT 0, 30";
+
+    //     return $this->db->query($sql);
+    // }
 
     function get_chat_list($options = array()) {
 
@@ -144,50 +306,170 @@ class Messages_model extends Crud_model {
 
         $where = "";
         $user_id = get_array_value($options, "user_id");
+
         if ($user_id) {
-            $where .= " AND ($messages_table.to_user_id=$user_id OR $messages_table.from_user_id=$user_id) ";
+            $where .= " AND (
+                $messages_table.to_user_id=$user_id 
+                OR $messages_table.from_user_id=$user_id
+                OR $messages_table.type='enquiry'
+            ) ";
         }
 
         $user_ids = get_array_value($options, "user_ids");
+
         if ($user_ids) {
-            $where .= " AND ($messages_table.to_user_id IN($user_ids) OR $messages_table.from_user_id IN($user_ids))";
+            $where .= " AND (
+                $messages_table.to_user_id IN($user_ids) 
+                OR $messages_table.from_user_id IN($user_ids)
+                OR $messages_table.type='enquiry'
+            )";
         }
 
-        $this->db->query("SET sql_mode = ''"); //ignor sql mode here
+        $this->db->query("SET sql_mode = ''");
 
-        $sql = "SELECT $messages_table.id, $messages_table.subject, $messages_table.from_user_id, IF(another_m.mex_created_at, another_m.mex_created_at, $messages_table.created_at) AS message_time, 
-                IF(another_m.status, another_m.status, $messages_table.status) AS status, (SELECT from_user_id FROM $messages_table WHERE $messages_table.id=another_m.max_id) AS last_from_user_id,
-                CONCAT($users_table.first_name, ' ', $users_table.last_name) AS user_name, $users_table.image AS user_image, $users_table.last_online
+        $sql = "SELECT 
+                $messages_table.id,
+                $messages_table.subject,
+                $messages_table.from_user_id,
+
+                IF(
+                    another_m.mex_created_at,
+                    another_m.mex_created_at,
+                    $messages_table.created_at
+                ) AS message_time,
+
+                IF(
+                    another_m.status,
+                    another_m.status,
+                    $messages_table.status
+                ) AS status,
+
+                (
+                    SELECT from_user_id 
+                    FROM $messages_table 
+                    WHERE $messages_table.id=another_m.max_id
+                ) AS last_from_user_id,
+
+                CASE
+                    WHEN $messages_table.type='enquiry'
+                    THEN $messages_table.name
+                    ELSE CONCAT($users_table.first_name, ' ', $users_table.last_name)
+                END AS user_name,
+
+                $users_table.image AS user_image,
+                $users_table.last_online
+
+            FROM $messages_table
+
+            LEFT JOIN (
+                SELECT 
+                    MAX(id) as max_id,
+                    MAX(message_id) as mex_message_id,
+                    MAX(created_at) as mex_created_at,
+                    MAX(status) as status
                 FROM $messages_table
-                LEFT JOIN (SELECT MAX(id) as max_id, MAX(message_id) as mex_message_id, MAX(created_at) as mex_created_at, MAX(status) as status FROM $messages_table WHERE deleted=0 and  message_id!=0 GROUP BY message_id) AS another_m ON $messages_table.id=another_m.mex_message_id
-                LEFT JOIN $users_table ON ($users_table.id=$messages_table.from_user_id OR $users_table.id=$messages_table.to_user_id) AND $users_table.id != $login_user_id
-                WHERE $messages_table.deleted=0 AND $messages_table.message_id=0 $where AND
-                FIND_IN_SET($login_user_id, $messages_table.deleted_by_users) = 0 AND ($messages_table.from_user_id=$login_user_id OR $messages_table.to_user_id=$login_user_id)
-                GROUP BY id
-                ORDER BY message_time DESC LIMIT 0, 30";
+                WHERE deleted=0 
+                AND message_id!=0
+                GROUP BY message_id
+            ) AS another_m 
+                ON $messages_table.id=another_m.mex_message_id
+
+            LEFT JOIN $users_table 
+                ON (
+                    $users_table.id=$messages_table.from_user_id 
+                    OR $users_table.id=$messages_table.to_user_id
+                )
+                AND $users_table.id != $login_user_id
+
+            WHERE 
+                $messages_table.deleted=0
+                AND $messages_table.message_id=0
+                $where
+                AND FIND_IN_SET(
+                    $login_user_id,
+                    $messages_table.deleted_by_users
+                ) = 0
+
+                AND (
+                    $messages_table.type='enquiry'
+                    OR
+                    (
+                        $messages_table.from_user_id=$login_user_id
+                        OR
+                        $messages_table.to_user_id=$login_user_id
+                    )
+                )
+
+            GROUP BY $messages_table.id
+
+            ORDER BY message_time DESC
+
+            LIMIT 0, 30";
 
         return $this->db->query($sql);
     }
+
+    // function count_notifications($user_id, $last_message_checke_at = "0", $active_message_id = 0, $user_ids = "") {
+    //     $messages_table = $this->db->prefixTable('messages');
+
+    //     $where = "";
+    //     if ($active_message_id) {
+    //         $where = " AND $messages_table.message_id!=$active_message_id";
+    //     }
+
+    //     if ($user_ids) {
+    //         $where .= " AND ($messages_table.to_user_id IN($user_ids) OR $messages_table.from_user_id IN($user_ids)) ";
+    //     }
+
+    //     $sql = "SELECT COUNT($messages_table.id) AS total_notifications
+    //     FROM $messages_table
+    //     WHERE $messages_table.deleted=0 AND $messages_table.status='unread'  AND $messages_table.to_user_id = $user_id
+    //     AND timestamp($messages_table.created_at)>timestamp('$last_message_checke_at') $where
+    //     ORDER BY timestamp($messages_table.created_at) DESC";
+
+    //     $result = $this->db->query($sql);
+    //     if ($result->resultID->num_rows) {
+    //         return $result->getRow()->total_notifications;
+    //     }
+    // }
 
     function count_notifications($user_id, $last_message_checke_at = "0", $active_message_id = 0, $user_ids = "") {
         $messages_table = $this->db->prefixTable('messages');
 
         $where = "";
+
         if ($active_message_id) {
             $where = " AND $messages_table.message_id!=$active_message_id";
         }
 
         if ($user_ids) {
-            $where .= " AND ($messages_table.to_user_id IN($user_ids) OR $messages_table.from_user_id IN($user_ids)) ";
+            $where .= " AND (
+                $messages_table.type='enquiry'
+                OR
+                (
+                    $messages_table.to_user_id IN($user_ids)
+                    OR $messages_table.from_user_id IN($user_ids)
+                )
+            ) ";
         }
 
         $sql = "SELECT COUNT($messages_table.id) AS total_notifications
-        FROM $messages_table
-        WHERE $messages_table.deleted=0 AND $messages_table.status='unread'  AND $messages_table.to_user_id = $user_id
-        AND timestamp($messages_table.created_at)>timestamp('$last_message_checke_at') $where
-        ORDER BY timestamp($messages_table.created_at) DESC";
+                FROM $messages_table
+                WHERE $messages_table.deleted=0
+                AND $messages_table.status='unread'
+
+                AND (
+                    $messages_table.type='enquiry'
+                    OR $messages_table.to_user_id=$user_id
+                )
+
+                AND timestamp($messages_table.created_at) > timestamp('$last_message_checke_at')
+                $where
+
+                ORDER BY timestamp($messages_table.created_at) DESC";
 
         $result = $this->db->query($sql);
+
         if ($result->resultID->num_rows) {
             return $result->getRow()->total_notifications;
         }
@@ -197,21 +479,59 @@ class Messages_model extends Crud_model {
 
     function set_message_status_as_read($message_id, $user_id = 0) {
         $messages_table = $this->db->prefixTable('messages');
-        $sql = "UPDATE $messages_table SET status='read' WHERE $messages_table.to_user_id=$user_id AND ($messages_table.message_id=$message_id OR $messages_table.id=$message_id)";
+        // $sql = "UPDATE $messages_table SET status='read' WHERE $messages_table.to_user_id=$user_id AND ($messages_table.message_id=$message_id OR $messages_table.id=$message_id)";
+        $sql = "UPDATE $messages_table
+            SET status='read'
+            WHERE
+            (
+                $messages_table.to_user_id=$user_id
+                OR $messages_table.type='enquiry'
+            )
+            AND
+            (
+                $messages_table.message_id=$message_id
+                OR $messages_table.id=$message_id
+            )";
         return $this->db->query($sql);
     }
+
+    // function count_unread_message($user_id = 0, $user_ids = "") {
+    //     $messages_table = $this->db->prefixTable('messages');
+
+    //     $where = "";
+    //     if ($user_ids) {
+    //         $where .= " AND ($messages_table.to_user_id IN($user_ids) OR $messages_table.from_user_id IN($user_ids)) ";
+    //     }
+
+    //     $sql = "SELECT COUNT($messages_table.id) as total
+    //     FROM $messages_table
+    //     WHERE $messages_table.deleted=0 AND $messages_table.status='unread'  AND $messages_table.to_user_id = $user_id $where";
+    //     return $this->db->query($sql)->getRow()->total;
+    // }
 
     function count_unread_message($user_id = 0, $user_ids = "") {
         $messages_table = $this->db->prefixTable('messages');
 
         $where = "";
+
         if ($user_ids) {
-            $where .= " AND ($messages_table.to_user_id IN($user_ids) OR $messages_table.from_user_id IN($user_ids)) ";
+            $where .= " AND (
+                $messages_table.to_user_id IN($user_ids)
+                OR $messages_table.from_user_id IN($user_ids)
+                OR $messages_table.type='enquiry'
+            ) ";
         }
 
         $sql = "SELECT COUNT($messages_table.id) as total
-        FROM $messages_table
-        WHERE $messages_table.deleted=0 AND $messages_table.status='unread'  AND $messages_table.to_user_id = $user_id $where";
+                FROM $messages_table
+                WHERE $messages_table.deleted=0
+                AND $messages_table.status='unread'
+                AND (
+                    $messages_table.to_user_id=$user_id
+                    OR $messages_table.type='enquiry'
+                )
+                $where";
+
         return $this->db->query($sql)->getRow()->total;
     }
 

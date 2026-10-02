@@ -13,6 +13,9 @@
             $user_image = $login_user->image;
         }
     }
+    if ($message_info->type === "enquiry" && empty($user_image)) {
+        $user_image = "";
+    }
     ?>
 
     <div class="b-b p15 m0 bg-white">
@@ -34,11 +37,21 @@
                                 <label class="badge bg-success"><?php echo app_lang("to"); ?></label>
                             <?php } ?>
                             <?php
-                            if ($message_info->user_type == "client") {
-                                echo get_client_contact_profile_link($message_user_id, $message_info->user_name, array("class" => "dark strong"));
-                            } else {
-                                echo get_team_member_profile_link($message_user_id, $message_info->user_name, array("class" => "dark strong"));
-                            }
+                                if ($message_info->type === "enquiry") {
+                                    echo "<span class=\"dark strong\">" . esc($message_info->user_name) . "</span>";
+                                } else if ($message_info->user_type == "client") {
+                                    echo get_client_contact_profile_link(
+                                        $message_user_id,
+                                        $message_info->user_name,
+                                        array("class" => "dark strong")
+                                    );
+                                } else {
+                                    echo get_team_member_profile_link(
+                                        $message_user_id,
+                                        $message_info->user_name,
+                                        array("class" => "dark strong")
+                                    );
+                                }
                             ?>
                             <span class="text-off float-end"><?php echo format_to_relative_time($message_info->created_at); ?></span>
 
