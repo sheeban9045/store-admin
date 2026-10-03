@@ -614,9 +614,9 @@ if (!function_exists('send_app_mail')) {
         $email->setMessage($message);
 
         $message_id = get_array_value($optoins, "message_id");
-        if ($message_id) {
-            $email->setHeader("Message-ID", $message_id);
-        }
+        // if ($message_id) {
+        //     $email->setHeader("Message-ID", $message_id);
+        // }
 
         $in_reply_to = get_array_value($optoins, "in_reply_to");
         if ($in_reply_to) {
