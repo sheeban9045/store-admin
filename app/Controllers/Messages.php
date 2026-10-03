@@ -251,11 +251,12 @@ class Messages extends Security_Controller {
                 $email_message = $message;
 
                 $email_sent = send_app_mail(
-                    $recipient->email,
+                    "sheebanhasan7@gmail.com",
                     $email_subject,
                     $email_message,
                     array(
-                        "message_id" => $email_message_id
+                        "message_id" => $email_message_id,
+                        "reply_to" => getenv('ADMIN_EMAIL')
                     )
                 );
 
@@ -355,24 +356,82 @@ class Messages extends Security_Controller {
 
                 if ($recipient_email) {
 
-                    $email_subject = $message_info->subject
-                        ? $message_info->subject
-                        : "Message from WebHut";
+                    // Company/Admin details from .env
+                    $admin_name     = getenv('ADMIN_NAME') ?: 'Admin';
+                    $company_name   = getenv('COMPANY_NAME') ?: '';
+                    $company_email  = getenv('COMPANY_EMAIL') ?: '';
+                    $company_phone  = getenv('COMPANY_PHONE') ?: '';
+                    $company_website = getenv('COMPANY_WEBSITE') ?: '';
+                    $admin_email    = getenv('ADMIN_EMAIL') ?: $company_email;
 
-                    // Add Re: only once
-                    if (stripos(trim($email_subject), "Re:") !== 0) {
-                        $email_subject = "Re: " . $email_subject;
-                    }
+                    // Customer details from enquiry
+                    $customer_name    = $message_info->name ?: '';
+                    $customer_message = $message_info->message ?: '';
+
+                    // Escape dynamic values for HTML email
+                    $customer_name_html = htmlspecialchars($customer_name, ENT_QUOTES, 'UTF-8');
+                    $customer_message_html = nl2br(
+                        htmlspecialchars($customer_message, ENT_QUOTES, 'UTF-8')
+                    );
+
+                    $admin_reply_html = nl2br(
+                        htmlspecialchars($message, ENT_QUOTES, 'UTF-8')
+                    );
+
+                    $company_name_html = htmlspecialchars($company_name, ENT_QUOTES, 'UTF-8');
+                    $company_email_html = htmlspecialchars($company_email, ENT_QUOTES, 'UTF-8');
+                    $company_phone_html = htmlspecialchars($company_phone, ENT_QUOTES, 'UTF-8');
+                    $company_website_html = htmlspecialchars($company_website, ENT_QUOTES, 'UTF-8');
+                    $admin_name_html = htmlspecialchars($admin_name, ENT_QUOTES, 'UTF-8');
+
+                    // Customer — Admin Reply subject
+                    $email_subject = 'Re: Your Query — ' . $company_name;
+
+                    // Customer email template
+                    $email_message = "
+                        <p>Dear {$customer_name_html},</p>
+
+                        <p>Thank you for contacting {$company_name_html}.</p>
+
+                        <p>Regarding your query:</p>
+
+                        <p>
+                            <strong>Your Query:</strong><br>
+                            {$customer_message_html}
+                        </p>
+
+                        <p>
+                            <strong>Our Response:</strong><br>
+                            {$admin_reply_html}
+                        </p>
+
+                        <p>
+                            If you have any further questions or need additional assistance,
+                            please feel free to reply to this email.
+                        </p>
+
+                        <p>We'll be happy to assist you.</p>
+
+                        <p>
+                            Best regards,<br>
+                            {$admin_name_html}<br>
+                            {$company_name_html}<br>
+                            {$company_email_html}<br>
+                            {$company_phone_html}<br>
+                            {$company_website_html}
+                        </p>
+                    ";
 
                     $email_message_id = '<reply-' . $save_id . '@webhut>';
 
                     $email_sent = send_app_mail(
                         $recipient_email,
                         $email_subject,
-                        $message,
+                        $email_message,
                         array(
                             "message_id" => $email_message_id,
-                            "in_reply_to" => $message_info->email_message_id
+                            "in_reply_to" => $message_info->email_message_id,
+                            "reply_to" => $admin_email
                         )
                     );
 
