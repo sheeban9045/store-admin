@@ -251,7 +251,7 @@ class Messages extends Security_Controller {
                 $email_message = $message;
 
                 $email_sent = send_app_mail(
-                    "sheebanhasan7@gmail.com",
+                    $recipient->email,
                     $email_subject,
                     $email_message,
                     array(
