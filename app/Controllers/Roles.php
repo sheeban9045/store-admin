@@ -50,7 +50,7 @@ class Roles extends Security_Controller {
             }
             $view_data['client_groups_dropdown'] = json_encode($client_groups_dropdown);
 
-            $permissions = unserialize($view_data['model_info']->permissions);
+            $permissions = unserialize($view_data['model_info']->permissions ?? "");
 
             if (!$permissions) {
                 $permissions = array();
@@ -143,6 +143,10 @@ class Roles extends Security_Controller {
             "title" => $this->request->getPost('title'),
         );
 
+        if (!$id) {
+            $data["color"] = $this->generate_role_color();
+        }
+
         if ($copy_settings) {
             $role = $this->Roles_model->get_one($copy_settings);
             $data["permissions"] = $role->permissions;
@@ -154,6 +158,18 @@ class Roles extends Security_Controller {
         } else {
             echo json_encode(array("success" => false, 'message' => app_lang('error_occurred')));
         }
+    }
+
+    private function generate_role_color() {
+        $colors = array(
+            "#1F4E79", "#2E5D34", "#8A4B08", "#6A3D7C", "#7c078e", "#087F73", "#7A5C00", "#34495E", "#166534", "#5B2C83",
+            "#1D4ED8", "#047857", "#B45309", "#7E22CE", "#9c1977", "#0F766E", "#92400E", "#374151", "#15803D", "#6B21A8",
+            "#1E40AF", "#065F46", "#9A3412", "#6B21A8", "#0213ab", "#115E59", "#854D0E", "#1F2937", "#166534", "#581C87",
+            "#075985", "#14532D", "#7C2D12", "#581C87", "#116e6b", "#134E4A", "#713F12", "#374151", "#14532D", "#4C1D95",
+            "#164E63", "#365314", "#78350F", "#701A75", "#046a02", "#134E4A", "#713F12", "#334155", "#166534", "#4A044E"
+        );
+
+        return $colors[array_rand($colors)];
     }
 
     //save permissions of a role
