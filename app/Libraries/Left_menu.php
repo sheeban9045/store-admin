@@ -486,6 +486,7 @@ class Left_menu {
 
 
             if ($this->ci->login_user->is_admin || get_array_value($this->ci->login_user->permissions, "can_manage_all_kinds_of_settings")) {
+                $sidebar_menu["services"] = array("name" => "services", "url" => "services", "class" => "package");
                 $sidebar_menu["settings"] = array("name" => "settings", "url" => "settings/general", "class" => "settings");
             }
 
