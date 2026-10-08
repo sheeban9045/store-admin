@@ -17,18 +17,19 @@
     $(document).ready(function () {
         $("#services-table").appTable({
             source: '<?php echo_uri("services/list_data") ?>',
-            order: [[4, "asc"]],
+            order: [[5, "asc"]],
             columns: [
+                {title: '<?php echo app_lang("image"); ?>', "class": "text-center w80", sortable: false},
                 {title: '<?php echo app_lang("service_name"); ?>'},
                 {title: '<?php echo app_lang("slug"); ?>'},
-                {title: '<?php echo app_lang("price"); ?>', "class": "text-right w100"},
+                {title: '<?php echo app_lang("price_usd"); ?>', "class": "text-right w120"},
                 {title: '<?php echo app_lang("price_type"); ?>', "class": "w150"},
                 {title: '<?php echo app_lang("sort_order"); ?>', "class": "text-center w100"},
                 {title: '<?php echo app_lang("status"); ?>', "class": "text-center w100"},
                 {title: '<i data-feather="menu" class="icon-16"></i>', "class": "text-center option w100"}
             ],
-            printColumns: [0, 1, 2, 3, 4, 5],
-            xlsColumns: [0, 1, 2, 3, 4, 5]
+            printColumns: [1, 2, 3, 4, 5, 6],
+            xlsColumns: [1, 2, 3, 4, 5, 6]
         });
     });
 </script>
