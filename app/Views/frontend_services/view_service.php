@@ -13,13 +13,13 @@
                 ?>
             </div>
             <div class="flex-grow-1 p20 pl0">
-                <h4 class="mb-3"><?php echo $service->title; ?></h4>
+                <h2 class="mb-3" style="font-size: 22px;font-weight: 600;"><?php echo $service->title; ?></h2>
                 <div class="text-off mb-3"><?php echo $service->description; ?></div>
                 
                 <table class="table table-borderless table-sm m0">
                     <tr>
-                        <td class="w150"><strong>Order ID:</strong></td>
-                        <td>#<?php echo $order->id; ?></td>
+                        <td class="w150"><strong>Order:</strong></td>
+                        <td>Order #<?php echo $order->id; ?></td>
                     </tr>
                     <tr>
                         <td><strong>Amount Paid:</strong></td>
@@ -32,7 +32,7 @@
                     <tr>
                         <td><strong>Payment Status:</strong></td>
                         <td>
-                            <span class="badge bg-success">Success</span>
+                            <span class="badge bg-success" style="background: #0abb87 !important;">Success</span>
                         </td>
                     </tr>
                 </table>
