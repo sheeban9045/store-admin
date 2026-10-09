@@ -180,6 +180,24 @@ class Invoice_payments extends Security_Controller {
         );
 
         $list_data = $this->Invoice_payments_model->get_details($options)->getResult();
+
+        // Integrate service payments if applicable
+        if (empty($invoice_id) && empty($options['project_id']) && empty($options['payment_method_id'])) {
+            $Service_orders_model = model('App\Models\Service_orders_model');
+            if ($Service_orders_model) {
+                $service_payments = $Service_orders_model->get_service_payments_for_list($options)->getResult();
+                foreach ($service_payments as &$sp) {
+                    $sp->note = "Service: " . $sp->service_name;
+                }
+                $list_data = array_merge($list_data, $service_payments);
+                
+                // Sort merged array by payment_date DESC
+                usort($list_data, function($a, $b) {
+                    return strtotime($b->payment_date) - strtotime($a->payment_date);
+                });
+            }
+        }
+
         $result = array();
         foreach ($list_data as $data) {
             $result[] = $this->_make_payment_row($data);
@@ -197,6 +215,21 @@ class Invoice_payments extends Security_Controller {
         validate_numeric_value($client_id);
         $options = array("client_id" => $client_id);
         $list_data = $this->Invoice_payments_model->get_details($options)->getResult();
+
+        $Service_orders_model = model('App\Models\Service_orders_model');
+        if ($Service_orders_model) {
+            $service_payments = $Service_orders_model->get_service_payments_for_list($options)->getResult();
+            foreach ($service_payments as &$sp) {
+                $sp->note = "Service: " . $sp->service_name;
+            }
+            $list_data = array_merge($list_data, $service_payments);
+            
+            // Sort merged array by payment_date DESC
+            usort($list_data, function($a, $b) {
+                return strtotime($b->payment_date) - strtotime($a->payment_date);
+            });
+        }
+
         $result = array();
         foreach ($list_data as $data) {
             $result[] = $this->_make_payment_row($data);
@@ -226,11 +259,23 @@ class Invoice_payments extends Security_Controller {
             app_redirect("forbidden");
         }
 
-        if ($this->login_user->user_type == "staff") {
-            $invoice_url = anchor(get_uri("invoices/view/" . $data->invoice_id), get_invoice_id($data->invoice_id));
+        if (isset($data->is_service) && $data->is_service) {
+            if ($this->login_user->user_type == "staff") {
+                $invoice_url = modal_anchor(get_uri("Frontend_services/view_service/" . $data->id), "Service Order #" . $data->id, array("class" => "view-service-details", "data-post-id" => $data->id, "title" => "Service Details"));
+            } else {
+                $invoice_url = anchor(get_uri("Frontend_services/my_services"), "Service Order #" . $data->id);
+            }
+            $actions = "-";
         } else {
-            $invoice_url = anchor(get_uri("invoices/preview/" . $data->invoice_id), get_invoice_id($data->invoice_id));
+            if ($this->login_user->user_type == "staff") {
+                $invoice_url = anchor(get_uri("invoices/view/" . $data->invoice_id), get_invoice_id($data->invoice_id));
+            } else {
+                $invoice_url = anchor(get_uri("invoices/preview/" . $data->invoice_id), get_invoice_id($data->invoice_id));
+            }
+            $actions = modal_anchor(get_uri("invoice_payments/payment_modal_form"), "<i data-feather='edit' class='icon-16'></i>", array("class" => "edit", "title" => app_lang('edit_payment'), "data-post-id" => $data->id, "data-post-invoice_id" => $data->invoice_id,))
+            . js_anchor("<i data-feather='x' class='icon-16'></i>", array('title' => app_lang('delete'), "class" => "delete", "data-id" => $data->id, "data-action-url" => get_uri("invoice_payments/delete_payment"), "data-action" => "delete"));
         }
+
         return array(
             $invoice_url,
             $data->payment_date,
@@ -238,8 +283,7 @@ class Invoice_payments extends Security_Controller {
             $data->payment_method_title,
             $data->note,
             to_currency($data->amount, $data->currency_symbol),
-            modal_anchor(get_uri("invoice_payments/payment_modal_form"), "<i data-feather='edit' class='icon-16'></i>", array("class" => "edit", "title" => app_lang('edit_payment'), "data-post-id" => $data->id, "data-post-invoice_id" => $data->invoice_id,))
-            . js_anchor("<i data-feather='x' class='icon-16'></i>", array('title' => app_lang('delete'), "class" => "delete", "data-id" => $data->id, "data-action-url" => get_uri("invoice_payments/delete_payment"), "data-action" => "delete"))
+            $actions
         );
     }
 

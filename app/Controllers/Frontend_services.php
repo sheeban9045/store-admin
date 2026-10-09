@@ -10,7 +10,7 @@ class Frontend_services extends Security_Controller {
         parent::__construct();
     }
 
-    public function index() {
+     public function index() {
         $view_data['services'] = $this->Services_model->get_details(array("status" => "active"))->getResult();
         return $this->template->rander("frontend_services/index", $view_data);
     }
@@ -94,6 +94,7 @@ class Frontend_services extends Security_Controller {
             'payment_method_types' => ['card'],
             'line_items'           => $line_items,
             'mode'                 => 'payment',
+            'invoice_creation'     => ['enabled' => true],
             'success_url'          => $successURL,
             'cancel_url'           => $cancelURL,
             'metadata'             => [
@@ -148,7 +149,7 @@ class Frontend_services extends Security_Controller {
             $customer_message   = "
                 <h1>Hi, {$user_name}</h1>
                 <p>Your payment has been successfully completed for the service: <strong>{$service->title}</strong>.</p>
-                <p><strong>Order ID:</strong> #{$order_id}</p>
+                <p><strong>Order ID:</strong> ORDER #{$order_id}</p>
                 <p><strong>Amount Paid:</strong> $" . number_format($order->total_amount, 2) . "</p>
                 <br>
                 <p>Thank you for your purchase!</p>
@@ -156,7 +157,7 @@ class Frontend_services extends Security_Controller {
             send_app_mail($email, $customer_subject, $customer_message);
 
             $admin_email = get_setting("admin_email");
-            if (!$admin_email) {
+            if (empty($admin_email)) {
                 $admin_email = getenv('ADMIN_EMAIL');
             }
             $admin_subject   = "New Service Purchase";
@@ -165,22 +166,30 @@ class Frontend_services extends Security_Controller {
                 <p><strong>Customer:</strong> {$user_name} ({$email})</p>
                 <p><strong>Service:</strong> {$service->title}</p>
                 <p><strong>Amount Paid:</strong> $" . number_format($order->total_amount, 2) . "</p>
-                <p><strong>Order ID:</strong> #{$order_id}</p>
+                <p><strong>Order ID:</strong> ORDER #{$order_id}</p>
                 <p>Payment was successful.</p>
             ";
             if ($admin_email) {
                 send_app_mail($admin_email, $admin_subject, $admin_message);
             }
 
-            // Create Admin Message
-            $admin_users = $this->Users_model->get_all_where(["is_admin" => 1, "deleted" => 0])->getResult();
+
+            if (empty($admin_email)) {
+                $admin_users = $this->Users_model->get_all_where(["is_admin" => 1, "deleted" => 0])->getResult();
+            } else {
+                $admin_users = $this->Users_model->get_all_where(["email" => $admin_email, "deleted" => 0])->getResult();
+            }
             foreach ($admin_users as $admin) {
                 $message_data = array(
                     "from_user_id" => $user_data->id,
+                    "name" => $user_data->first_name . ' ' . $user_data->last_name,
+                    "email" => $user_data->email,
                     "to_user_id" => $admin->id,
+                    "type" => "enquiry",
                     "subject" => "New Service Purchased: " . $service->title,
-                    "message" => "Customer {$user_name} ({$email}) has purchased the service '{$service->title}'. Amount paid: $" . number_format($order->total_amount, 2) . ". Order ID: #{$order_id}.",
+                    "message" => "Customer {$user_name} ({$email}) has purchased the service '{$service->title}'. Amount paid: $" . number_format($order->total_amount, 2) . ". Order ID: ORDER #{$order_id}.",
                     "created_at" => get_current_utc_time(),
+                    "files" => "a:0:{}",
                     "deleted_by_users" => "",
                 );
                 $this->Messages_model->ci_save($message_data);
@@ -285,13 +294,16 @@ class Frontend_services extends Security_Controller {
 
         $title = modal_anchor(get_uri("Frontend_services/view_service/" . $data->id), $data->service_name, array("class" => "edit", "title" => "Service Details", "data-post-id" => $data->id));
 
-        $order_id = "#" . $data->id;
+        $order_id = "ORDER #" . $data->id;
         $amount = to_currency($data->total_amount, "$");
         $purchase_date = format_to_datetime($data->created_at);
 
-        $status = "<span class='badge bg-success'>Success</span>";
+        $status = "<span class='badge bg-success' style='background: #0abb87 !important;'>Success</span>";
         
-        $action = modal_anchor(get_uri("Frontend_services/view_service/" . $data->id), "<i data-feather='eye' class='icon-16'></i> View Details", array("class" => "btn btn-default btn-sm", "title" => "Service Details", "data-post-id" => $data->id));
+        $action = '<div style="display: flex; gap: 8px;">';
+        $action .= modal_anchor(get_uri("Frontend_services/view_service/" . $data->id), "<i data-feather='eye' class='icon-16'></i> <span style='font-size: 13px; font-weight: 500;'>Details</span>", array("title" => "Service Details", "data-post-id" => $data->id, "style" => "background: #e0f2fe; color: #0284c7; padding: 4px 10px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #bae6fd; text-decoration: none;"));
+        $action .= modal_anchor(get_uri("Frontend_services/view_invoice?order_id=" . $data->id), "<i data-feather='file-text' class='icon-16'></i> <span style='font-size: 13px; font-weight: 500;'>Invoice</span>", array("title" => "View Invoice", "data-post-id" => $data->id, "style" => "background: #dcfce7; color: #166534; padding: 4px 10px; border-radius: 4px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #bbf7d0; text-decoration: none;"));
+        $action .= '</div>';
 
         return [
             $image_url,
@@ -321,6 +333,136 @@ class Frontend_services extends Security_Controller {
         $view_data['service'] = $service;
 
         return $this->template->view("frontend_services/view_service", $view_data);
+    }
+
+    public function view_invoice() {
+        if (!$this->login_user) {
+            return false;
+        }
+
+        $order_id = $_GET['order_id'];
+        
+        // Ensure user is authorized to view this order
+        $order_detail = $this->Service_orders_model->get_details(["id" => $order_id])->getRow();
+        if (!$order_detail) {
+            return false;
+        }
+        
+        // If not admin, restrict to own orders
+        if (!$this->login_user->is_admin && $order_detail->user_id != $this->login_user->id) {
+            return false;
+        }
+
+        $service = $this->Services_model->get_details(["id" => $order_detail->service_id])->getRow();
+        $user_detail = $this->Users_model->get_one($order_detail->user_id);
+        
+        if (empty($order_detail->payment_response)) {
+            return false;
+        }
+        
+        $view_data['user_detail'] = $user_detail;
+        $view_data['order_detail'] = $order_detail;
+        $view_data['service'] = $service;
+        
+        $stripeResponseObj = json_decode($order_detail->payment_response);
+        
+        $stripePaymentMethod = $this->Payment_methods_model->get_oneline_payment_method('stripe');
+        $payment_setting = $this->Payment_methods_model->get_one_with_settings($stripePaymentMethod->id);
+
+        if (empty($payment_setting->secret_key) || empty($payment_setting->publishable_key)) {
+            return false;
+        }
+        \Stripe\Stripe::setApiKey($payment_setting->secret_key);
+
+        $subscriptionId = isset($stripeResponseObj->subscription) ? $stripeResponseObj->subscription : '';
+        $paymentIntentId = isset($stripeResponseObj->payment_intent) ? $stripeResponseObj->payment_intent : '';
+        $invoiceId = isset($stripeResponseObj->invoice) ? $stripeResponseObj->invoice : '';
+
+        $allInvoices = [];
+        if (!empty($subscriptionId)) {
+            $allInvoices = $this->getInvoicesBySubscriptionId($subscriptionId);
+        } elseif (!empty($invoiceId)) {
+            try {
+                $invoice = \Stripe\Invoice::retrieve($invoiceId);
+                $timestamp = isset($invoice->status_transitions->paid_at) ? $invoice->status_transitions->paid_at : $invoice->created;
+                $allInvoices[] = [
+                    'invoice_id' => $invoice->id,
+                    'amount_due' => $invoice->amount_due,
+                    'status' => $invoice->status,
+                    'status_date' => date('Y-m-d H:i:s', $timestamp),
+                    'interval' => 'one-time',
+                    'url' => $invoice->hosted_invoice_url,
+                ];
+            } catch (\Exception $e) {
+                // Ignore
+            }
+        } elseif (!empty($paymentIntentId)) {
+            try {
+                $paymentIntent = \Stripe\PaymentIntent::retrieve($paymentIntentId);
+                // In some cases, the payment intent itself has the invoice attached
+                if (!empty($paymentIntent->invoice)) {
+                    $invoice = \Stripe\Invoice::retrieve($paymentIntent->invoice);
+                    $timestamp = isset($invoice->status_transitions->paid_at) ? $invoice->status_transitions->paid_at : $invoice->created;
+                    $allInvoices[] = [
+                        'invoice_id' => $invoice->id,
+                        'amount_due' => $invoice->amount_due,
+                        'status' => $invoice->status,
+                        'status_date' => date('Y-m-d H:i:s', $timestamp),
+                        'interval' => 'one-time',
+                        'url' => $invoice->hosted_invoice_url,
+                    ];
+                } else if (isset($paymentIntent->latest_charge) && $paymentIntent->latest_charge) {
+                    $charge = \Stripe\Charge::retrieve($paymentIntent->latest_charge);
+                    $allInvoices[] = [
+                        'invoice_id' => $charge->id,
+                        'amount_due' => $charge->amount,
+                        'status' => $charge->status == 'succeeded' ? 'paid' : $charge->status,
+                        'status_date' => date('Y-m-d H:i:s', $charge->created),
+                        'interval' => 'one-time',
+                        'url' => !empty($charge->receipt_url) ? $charge->receipt_url : '',
+                    ];
+                }
+            } catch (\Exception $e) {
+                // Ignore
+            }
+        }
+
+        if (!empty($allInvoices)) {
+            foreach ($allInvoices as &$item) {
+                $item['invoice_title'] = !empty($service) ? $service->title : 'null';
+            }
+            $view_data['all_invoices'] = $allInvoices;
+        }
+        
+        return $this->template->view('frontend_services/view_invoice', $view_data);
+    }
+
+    protected function getInvoicesBySubscriptionId($subscriptionId) {
+        try {
+            $invoices = \Stripe\Invoice::all([
+                'subscription' => $subscriptionId,
+            ]);
+
+            $invoiceDetails = [];
+            
+            foreach ($invoices->data as $invoice) {
+                $timestamp = isset($invoice->status_transitions->paid_at) ? $invoice->status_transitions->paid_at : $invoice->created;
+                $date = date('Y-m-d H:i:s', $timestamp);
+                $invoiceDetails[] = [
+                    'invoice_id' => $invoice->id,
+                    'amount_due' => $invoice->amount_due,
+                    'status' => $invoice->status,
+                    'status_date' => $date,
+                    'interval' => isset($invoice['lines']['data'][0]['plan']['interval']) ? $invoice['lines']['data'][0]['plan']['interval'] : 'one-time',
+                    'url' => $invoice->hosted_invoice_url,
+                ];
+            }
+
+            return $invoiceDetails;
+
+        } catch (\Exception $e) {
+            return [];
+        }
     }
 
 }
