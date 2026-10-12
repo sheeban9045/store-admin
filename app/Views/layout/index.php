@@ -88,5 +88,6 @@ if (isset($success_message)) {
             </script>
         </div>
 
+        <?php echo view("includes/tawk_to"); ?>
     </body>
 </html>
